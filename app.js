@@ -1,7 +1,7 @@
 /**
  * @file app.js
  * @description Logika utama untuk dashboard KPI Sales, diadaptasi untuk backend MongoDB.
- * @version 14.0.0 - Versi lengkap dengan semua fungsi UI dan logika CRUD.
+ * @version 14.1.0 - [FIX] Menyamakan semua nama koleksi (case-sensitivity) agar sesuai dengan database.
  */
 
 // --- INISIALISASI PENGGUNA & PENJAGA HALAMAN ---
@@ -23,7 +23,6 @@ async function fetchWithAuth(url, options = {}) {
     const response = await fetch(url, { ...options, headers });
 
     if (response.status === 401) {
-        // Jika token tidak valid/kadaluarsa, logout pengguna
         logout();
         throw new Error('Sesi Anda telah berakhir. Silakan login kembali.');
     }
@@ -33,12 +32,9 @@ async function fetchWithAuth(url, options = {}) {
         throw new Error(errorData.message || 'Terjadi kesalahan pada server.');
     }
 
-    // Cek jika response punya body sebelum parsing JSON
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.indexOf("application/json") !== -1) {
         return response.json();
-    } else {
-        return; // Tidak ada body atau bukan JSON
     }
 }
 
@@ -151,7 +147,7 @@ async function loadInitialData() {
     try {
         const collectionsToFetch = Object.keys(CONFIG.dataMapping);
         const fetchPromises = collectionsToFetch.map(dataKey =>
-            fetchWithAuth(`${API_BASE_URL}/data/${dataKey}?startDate=${periodStartDate.toISOString()}&endDate=${periodEndDate.toISOString()}&salesName=${currentUser.name}`)
+            fetchWithAuth(`${API_BASE_URL}/data/${CONFIG.dataMapping[dataKey].collectionName}?startDate=${periodStartDate.toISOString()}&endDate=${periodEndDate.toISOString()}&salesName=${currentUser.name}`)
         );
 
         const settingsPromises = [
@@ -259,7 +255,7 @@ function getDealCollectionName(product) {
     } else if (productLower.includes('venue') || productLower.includes('package')) {
         return 'VenueBookings';
     }
-    return 'DealLainnya';
+    return 'Deal Lainnya';
 }
 
 async function handleUpdateLead(e) {
