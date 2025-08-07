@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Management Dashboard - KPI Sales</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-20); margin-bottom: var(--space-32); }
+        .stat-card { background-color: var(--color-surface); border-radius: var(--radius-lg); padding: var(--space-20); border: 1px solid var(--color-card-border); box-shadow: var(--shadow-sm); }
+        .stat-card h3 { font-size: var(--font-size-md); color: var(--color-text-secondary); margin-bottom: var(--space-8); }
+        .stat-card .value { font-size: var(--font-size-3xl); font-weight: var(--font-weight-bold); color: var(--color-primary); }
+        .dashboard-layout { display: grid; grid-template-columns: 1fr; gap: var(--space-24); }
+        .performance-report-container .filters { display: flex; gap: var(--space-16); margin-bottom: var(--space-16); align-items: center; }
+        .tabs-container { display: flex; border-bottom: 1px solid var(--color-border); margin-bottom: var(--space-16); }
+        .tab-button { padding: var(--space-10) var(--space-16); cursor: pointer; border: none; background: none; border-bottom: 3px solid transparent; font-size: var(--font-size-md); color: var(--color-text-secondary); }
+        .tab-button.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: var(--font-weight-semibold); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .performance-table-wrapper { overflow-x: auto; }
+        .performance-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .performance-table th, .performance-table td { border: 1px solid var(--color-border); padding: var(--space-8); text-align: center; font-size: var(--font-size-sm); }
+        .performance-table th { background-color: var(--color-secondary); font-weight: 500; min-width: 40px; }
+        .performance-table td:first-child { text-align: left; font-weight: 500; background-color: var(--color-secondary); width: 250px; position: sticky; left: 0; z-index: 1;}
+        .check-mark { color: var(--color-success); font-weight: bold; }
+        .cross-mark { color: var(--color-error); font-weight: bold; }
+        .off-day { background-color: var(--color-gray-200) !important; color: var(--color-text-secondary); }
+        .time-off-container { display: grid; grid-template-columns: 1fr 2fr; gap: var(--space-24); }
+        .time-off-form { display: flex; flex-direction: column; gap: var(--space-16); }
+        .time-off-list ul { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
+        .time-off-list li { display: flex; justify-content: space-between; align-items: center; padding: var(--space-8); border-bottom: 1px solid var(--color-border); }
+        .delete-btn { background: none; border: none; color: var(--color-error); cursor: pointer; }
+        .app-layout { display: flex; }
+        .main-content { flex-grow: 1; margin-left: 260px; margin-top: 60px; padding: var(--space-24); }
+        .content-page { display: none; }
+        .content-page.active { display: block; }
+        [data-color-scheme="dark"] .off-day { background-color: var(--color-charcoal-700) !important; }
+        [data-color-scheme="dark"] .performance-table td:first-child { background-color: var(--color-charcoal-700); }
+        .admin-settings-grid { display: grid; gap: var(--space-12); }
+        .setting-item { display: flex; align-items: center; justify-content: space-between; padding: var(--space-12); background-color: var(--color-secondary); border-radius: var(--radius-base); }
+        .setting-info { flex: 1; }
+        .setting-name { font-weight: var(--font-weight-semibold); }
+        .setting-description { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+        .toggle-switch { position: relative; display: inline-block; width: 48px; height: 24px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--color-border); transition: .4s; border-radius: 24px; }
+        .toggle-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .toggle-slider { background-color: var(--color-primary); }
+        input:checked + .toggle-slider:before { transform: translateX(24px); }
+        #validationCenter .card { margin-bottom: var(--space-24); }
+        .validation-table { width: 100%; border-collapse: collapse; }
+        .validation-table th, .validation-table td { padding: var(--space-12); text-align: left; border-bottom: 1px solid var(--color-border); }
+        .validation-table th { background-color: var(--color-secondary); }
+        .validation-actions { display: flex; gap: var(--space-8); align-items: center;}
+
+        /* Modal Detail */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background-color: var(--color-surface); padding: var(--space-24); border-radius: var(--radius-lg); width: 90%; max-width: 600px; box-shadow: var(--shadow-lg); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-16); padding-bottom: var(--space-16); border-bottom: 1px solid var(--color-border); }
+        .modal-header h3 { margin: 0; color: var(--color-primary); }
+        .close-button { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text); }
+        .detail-list { display: grid; grid-template-columns: 150px 1fr; gap: var(--space-12); }
+        .detail-list dt { font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); }
+        .detail-list dd { margin: 0; word-break: break-word; }
+        .detail-list dd a { color: var(--color-primary); }
+        
+        /* Gaya untuk Collapse/Expand */
+        #validationCenter .card__header {
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .collapse-btn {
+            background: none;
+            border: none;
+            padding: var(--space-4);
+            cursor: pointer;
+            color: var(--color-text-secondary);
+        }
+        .collapse-btn svg {
+            transition: transform var(--duration-normal) var(--ease-standard);
+            pointer-events: none;
+        }
+        .card.is-collapsed .card__body {
+            display: none;
+        }
+        .card.is-collapsed .collapse-btn svg {
+            transform: rotate(-90deg);
+        }
+    </style>
+</head>
+<body>
+    <div id="managementApp" class="page">
+        <header class="app-header">
+            <div class="header-content">
+                <h1>Management Dashboard - <span id="userDisplayName"></span></h1>
+                <div class="header-actions"><span id="currentDateTime"></span><button id="logoutBtn" class="btn btn--outline btn--sm">Logout</button></div>
+            </div>
+        </header>
+
+        <div class="app-layout">
+            <nav class="sidebar" style="top: 60px;">
+                <div class="sidebar-content">
+                    <div class="nav-section">
+                        <h3>Menu</h3>
+                        <ul class="nav-list">
+                            <li><a href="#" data-page="mainDashboard" class="nav-link active">Dashboard</a></li>
+                            <li><a href="#" data-page="validationCenter" class="nav-link">Pusat Validasi <span id="pendingCountBadge" class="status status--warning" style="display:none; margin-left: 8px;"></span></a></li>
+                            <li><a href="#" data-page="timeOffSettings" class="nav-link">Pengaturan Libur</a></li>
+                            <li><a href="#" data-page="kpiSettings" class="nav-link">Pengaturan KPI</a></li>
+                        </ul>
+                    </div>
+                    <div class="nav-section">
+                        <h3>Filter Periode</h3>
+                        <div class="form-group" style="padding: 0 var(--space-12);"><label for="yearFilter" class="form-label">Tahun</label><select id="yearFilter" class="form-control" style="width: 100%;"></select></div>
+                        <div class="form-group" style="padding: 0 var(--space-12);"><label for="periodFilter" class="form-label">Periode</label><select id="periodFilter" class="form-control" style="width: 100%;"></select></div>
+                    </div>
+                </div>
+            </nav>
+
+            <main class="main-content">
+                <!-- Halaman 1: Dashboard Utama -->
+                <div id="mainDashboard" class="content-page active">
+                    <div class="page-header">
+                        <h2>Ringkasan Kinerja Tim</h2>
+                        <!-- [MODIFIED] Tombol diubah untuk ekspor Excel -->
+                        <button id="exportExcelBtn" class="btn btn--secondary">Download Laporan Excel</button>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card"><h3>Total Leads (Approved)</h3><p class="value" id="totalLeads">0</p></div>
+                        <div class="stat-card"><h3>Total Canvasing (Approved)</h3><p class="value" id="totalCanvasing">0</p></div>
+                        <div class="stat-card"><h3>Sales Terbaik (Approved)</h3><p class="value" id="topSales">N/A</p></div>
+                        <div class="stat-card"><h3>Total Denda Tim (Final)</h3><p class="value" id="totalPenalty">Rp 0</p></div>
+                    </div>
+                    <div class="card" style="margin-bottom: var(--space-24);"><div class="card__body"><h3>Status Validasi Data Tim</h3><div id="teamValidationBreakdown"></div></div></div>
+                    <div class="dashboard-layout">
+                        <div class="leaderboard-container card"><div class="card__header"><h3>Papan Peringkat Sales (Berdasarkan Data Approved)</h3></div><div class="card__body"><div id="leaderboard" class="summary-table"></div></div></div>
+                        <div class="card">
+                            <div class="card__header" style="display: flex; justify-content: space-between; align-items: center;">
+                                <h3>Laporan Kinerja Rinci per Sales</h3>
+                                <div id="managementReportNav" class="carousel-nav">
+                                    <button id="managementPrevWeekBtn" class="btn btn--outline btn--sm">&lt;</button>
+                                    <span id="managementWeekRangeLabel" style="display: inline-block; width: 130px; text-align: center; font-size: var(--font-size-sm); font-weight: 500;"></span>
+                                    <button id="managementNextWeekBtn" class="btn btn--outline btn--sm">&gt;</button>
+                                </div>
+                            </div>
+                            <div class="card__body">
+                                <div id="performanceReportContainer" class="performance-report-container">
+                                    <div id="tabsContainer" class="tabs-container"></div>
+                                    <div id="tabContentContainer"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Halaman 2: Pusat Validasi dengan Tabs -->
+                <div id="validationCenter" class="content-page">
+                    <div class="page-header">
+                        <h2>Pusat Validasi Data</h2>
+                        <div class="date-filter" style="display: flex; align-items: center; gap: 16px;">
+                             <div class="form-group" style="margin-bottom: 0;">
+                                <label for="validationDateFilter" class="form-label" style="margin-bottom: 0; margin-right: 8px;">Tampilkan data untuk tanggal:</label>
+                                <input type="date" id="validationDateFilter" class="form-control" style="width: auto;">
+                             </div>
+                            <button id="refreshValidationBtn" class="btn btn--secondary">Refresh Data</button>
+                        </div>
+                    </div>
+                    <div id="validationTabsContainer" class="tabs-container validation-tabs"></div>
+                    <div id="validationTabContentContainer"></div>
+                </div>
+
+                <!-- Halaman 3: Pengaturan Hari Libur & Izin -->
+                <div id="timeOffSettings" class="content-page">
+                    <div class="page-header"><h2>Pengaturan Hari Libur & Izin</h2></div>
+                    <div class="card">
+                        <div class="card__body">
+                            <div class="time-off-container">
+                                <form id="timeOffForm" class="time-off-form">
+                                    <div class="form-group">
+                                        <label for="timeOffDate" class="form-label">Tanggal</label>
+                                        <input type="date" id="timeOffDate" class="form-control" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="timeOffSales" class="form-label">Untuk Sales</label>
+                                        <select id="timeOffSales" class="form-control" required></select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="timeOffDescription" class="form-label">Keterangan (Cuti, Libur Nasional, dll)</label>
+                                        <input type="text" id="timeOffDescription" class="form-control" required>
+                                    </div>
+                                    <button type="submit" class="btn btn--primary">Simpan</button>
+                                </form>
+                                <div class="time-off-list">
+                                    <h4>Daftar Tanggal Tersimpan</h4>
+                                    <ul id="timeOffListContainer"></ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Halaman 4: Pengaturan KPI -->
+                <div id="kpiSettings" class="content-page">
+                    <div class="page-header"><h2>Pengaturan KPI</h2></div>
+
+                    <div class="card" style="margin-bottom: var(--space-24);">
+                        <div class="card__header"><h3>Pengaturan Batas Waktu Input Harian</h3></div>
+                        <div class="card__body" id="cutoffSettingsContainer">
+                            <p style="color: var(--color-text-secondary); margin: 0 0 var(--space-16) 0;">
+                                Aktifkan untuk menolak input data target harian (Leads, Prospek, Promosi) setelah melewati jam yang ditentukan.
+                            </p>
+                            <form id="cutoffForm">
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <div class="setting-name">Aktifkan Batas Waktu</div>
+                                        <div class="setting-description">Jika aktif, input target harian akan ditolak setelah jam cutoff.</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="cutoffEnabledToggle">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="margin-top: var(--space-16);">
+                                    <label for="cutoffTimeInput" class="form-label">Jam Batas Waktu (Cutoff)</label>
+                                    <input type="time" id="cutoffTimeInput" class="form-control" style="max-width: 200px;">
+                                    <small style="color: var(--color-text-secondary); display: block; margin-top: 4px;">Format 24 jam, contoh: 16:00 untuk jam 4 sore.</small>
+                                </div>
+                                <div style="text-align: right; margin-top: var(--space-16);">
+                                    <button type="submit" class="btn btn--primary">Simpan Pengaturan Cutoff</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card__header"><h3>Pengaturan Target KPI Aktif</h3></div>
+                        <div class="card__body">
+                            <p style="color: var(--color-text-secondary); margin-bottom: 16px;">
+                                Nonaktifkan target KPI untuk menghentikannya dari perhitungan denda dan ringkasan kinerja di semua dashboard. Perubahan akan langsung berlaku.
+                            </p>
+                            <div id="kpiSettingsContainer" class="admin-settings-grid">
+                                <div style="padding: 24px; text-align: center;">Memuat pengaturan...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal untuk Detail Data di Halaman Manajemen -->
+    <div id="managementDetailModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="managementDetailModalTitle">Detail Data</h3>
+                <button class="close-button" onclick="closeDetailModal()">&times;</button>
+            </div>
+            <div id="managementDetailModalBody"></div>
+        </div>
+    </div>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+    <script>
+      const firebaseConfig = {
+        apiKey: "AIzaSyAqU-GvPlgJJgFZiV1u_01HyVUOgCLiD_c",
+        authDomain: "admin-stayvie.firebaseapp.com",
+        projectId: "admin-stayvie",
+        storageBucket: "admin-stayvie.firebasestorage.app",
+        messagingSenderId: "263821398757",
+        appId: "1:263821398757:web:d43aef8e2f825d3c3dba0c"
+      };
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      const db = firebase.firestore();
+      const auth = firebase.auth();
+      const storage = firebase.storage();
+    </script>
+    
+    <!-- [ADDED] Library SheetJS untuk membuat file Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <script src="utils.js"></script>
+    <script src="management.js"></script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KPI Dashboard - Stayie Dinoyo Hotel Prime</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* CSS untuk Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); display: none; justify-content: center;
+            align-items: center; z-index: 1000; transition: opacity 0.3s ease;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-content {
+            background-color: var(--color-surface); padding: var(--space-24);
+            border-radius: var(--radius-lg); width: 90%; max-width: 600px;
+            box-shadow: var(--shadow-lg);
+        }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: var(--space-16); padding-bottom: var(--space-16);
+            border-bottom: 1px solid var(--color-border);
+        }
+        .modal-header h3 { margin: 0; color: var(--color-primary); }
+        .close-button { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text); }
+        .detail-list { display: grid; grid-template-columns: 150px 1fr; gap: var(--space-12); }
+        .detail-list dt { font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); }
+        .detail-list dd { margin: 0; word-break: break-word; }
+        .detail-list dd a { color: var(--color-primary); }
+        .summary-table tbody tr { cursor: pointer; transition: background-color 0.2s ease; }
+        .summary-table tbody tr:hover { background-color: var(--color-secondary); }
+        .tabs-container { display: flex; border-bottom: 1px solid var(--color-border); margin-bottom: var(--space-16); }
+        .tab-button {
+            padding: var(--space-10) var(--space-16); cursor: pointer; border: none; background: none;
+            border-bottom: 3px solid transparent; font-size: var(--font-size-md); color: var(--color-text-secondary);
+        }
+        .tab-button.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: var(--font-weight-semibold); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body>
+    <div id="mainApp" class="page">
+        <header class="app-header">
+            <div class="header-content">
+                <h1>KPI Dashboard - <span id="userDisplayName"></span></h1>
+                <div class="header-actions">
+                    <span id="currentDateTime"></span>
+                    <button id="logoutBtn" class="btn btn--outline btn--sm">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <nav class="sidebar">
+            <div class="sidebar-content">
+                <div class="nav-section">
+                    <h3>Menu Utama</h3>
+                    <ul class="nav-list">
+                        <li><a href="#" data-page="dashboard" class="nav-link active">Dashboard</a></li>
+                    </ul>
+                </div>
+                <div class="nav-section">
+                    <h3>Filter Periode</h3>
+                    <div class="form-group" style="padding: 0 var(--space-12);">
+                        <label for="yearFilter" class="form-label">Tahun</label>
+                        <select id="yearFilter" class="form-control" style="width: 100%;"></select>
+                    </div>
+                    <div class="form-group" style="padding: 0 var(--space-12);">
+                        <label for="periodFilter" class="form-label">Periode</label>
+                        <select id="periodFilter" class="form-control" style="width: 100%;"></select>
+                    </div>
+                </div>
+                <div class="nav-section sales-only">
+                    <h3>Input KPI</h3>
+                    <ul class="nav-list">
+                        <li><a href="#" data-page="input-lead" class="nav-link">Input Lead</a></li>
+                        <li><a href="#" data-page="upload-canvasing" class="nav-link">Upload Meeting Canvasing</a></li>
+                        <li><a href="#" data-page="upload-promosi" class="nav-link">Upload Promosi Campaign</a></li>
+                        <li><a href="#" data-page="door-to-door" class="nav-link">Door-to-door</a></li>
+                        <li><a href="#" data-page="quotation" class="nav-link">Quotation</a></li>
+                        <li><a href="#" data-page="survey-coliving" class="nav-link">Survey Co-Living</a></li>
+                        <li><a href="#" data-page="laporan-mingguan" class="nav-link">Laporan Mingguan</a></li>
+                        <li><a href="#" data-page="crm-survey" class="nav-link">CRM Survey Kompetitor</a></li>
+                        <li><a href="#" data-page="konversi-venue" class="nav-link">Konversi Booking Venue</a></li>
+                        <li><a href="#" data-page="event-networking" class="nav-link">Event/Networking</a></li>
+                        <li><a href="#" data-page="launch-campaign" class="nav-link">Launch Campaign</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <div id="dashboard" class="content-page active">
+                <div class="page-header"><h2>Dashboard KPI</h2></div>
+                <div class="kpi-grid">
+                    <div class="card kpi-card"><div class="card__body"><h3>Target Harian</h3><div class="kpi-progress"><div class="progress-bar"><div class="progress-fill" id="dailyProgress"></div></div><span id="dailyPercentage">0%</span></div><div class="kpi-details"><span id="dailyAchieved">0</span> / <span id="dailyTotal">0</span></div></div></div>
+                    <div class="card kpi-card"><div class="card__body"><h3>Target Mingguan</h3><div class="kpi-progress"><div class="progress-bar"><div class="progress-fill" id="weeklyProgress"></div></div><span id="weeklyPercentage">0%</span></div><div class="kpi-details"><span id="weeklyAchieved">0</span> / <span id="weeklyTotal">0</span></div></div></div>
+                    <div class="card kpi-card"><div class="card__body"><h3>Target Bulanan</h3><div class="kpi-progress"><div class="progress-bar"><div class="progress-fill" id="monthlyProgress"></div></div><span id="monthlyPercentage">0%</span></div><div class="kpi-details"><span id="monthlyAchieved">0</span> / <span id="monthlyTotal">0</span></div></div></div>
+                    <div class="card penalty-card" style="background: linear-gradient(135deg, var(--color-warning), var(--color-orange-400));"><div class="card__body"><h3>Potensi Denda</h3><div class="penalty-amount" id="potentialPenalty">Rp 0</div><p style="color: white; opacity: 0.8; font-size: 12px; margin-top: 4px;">Berdasarkan semua data (termasuk pending)</p></div></div>
+                    <div class="card penalty-card"><div class="card__body"><h3>Denda Final</h3><div class="penalty-amount" id="finalPenalty">Rp 0</div><p style="color: white; opacity: 0.8; font-size: 12px; margin-top: 4px;">Berdasarkan data yang sudah di-approve</p></div></div>
+                </div>
+                <div class="card validation-summary-card" style="margin-bottom: var(--space-32);"><div class="card__body"><h3>Status Validasi Data Periode Ini</h3><div id="validationBreakdown"></div></div></div>
+                
+                <div class="card">
+                    <div class="card__header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3>Laporan Kinerja Rinci</h3>
+                        <div id="performanceReportNav" class="carousel-nav">
+                            <button id="prevWeekBtn" class="btn btn--outline btn--sm">&lt;</button>
+                            <span id="weekRangeLabel" style="display: inline-block; width: 130px; text-align: center; font-size: var(--font-size-sm); font-weight: 500;"></span>
+                            <button id="nextWeekBtn" class="btn btn--outline btn--sm">&gt;</button>
+                        </div>
+                    </div>
+                    <div class="card__body" style="padding: 0;">
+                        <div id="performanceTableWrapper" class="performance-table-wrapper">
+                            <table id="performanceTable" class="performance-table">
+                                <!-- Konten tabel akan dibuat oleh JavaScript -->
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Lead Page -->
+            <div id="input-lead" class="content-page">
+                <div class="page-header"><h2>Input Lead</h2></div>
+                <div class="form-container">
+                    <form id="leadForm" class="kpi-form" data-sheet-name="Leads">
+                        <div class="form-group"><label class="form-label">Nama Customer / Perusahaan</label><input type="text" name="customerName" class="form-control" required></div>
+                        <div class="form-group"><label class="form-label">Sumber Lead</label><select name="leadSource" class="form-control" required><option value="">Pilih Sumber</option><option value="Cekat">Cekat</option><option value="Sosmed">Sosmed</option><option value="Walk-in">Walk-in</option><option value="Canvasing">Canvasing</option></select></div>
+                        <div class="form-group"><label class="form-label">Produk yang Diminati</label>
+                            <select name="product" class="form-control" required>
+                                <option value="">Pilih Produk</option><option value="Kamar Hotel">Kamar Hotel</option><option value="Kamar Hotel B2B">Kamar Hotel B2B</option>
+                                <option value="Venue">Venue</option><option value="Co-Living">Co-Living</option><option value="Package">Package</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label class="form-label">No Kontak (HP/Email)</label><input type="text" name="contact" class="form-control" required></div>
+                        <div class="form-group"><label for="proofOfLead" class="form-label">Bukti Lead (Screenshot, dll)</label><input type="file" id="proofOfLead" name="proofOfLead" class="form-control" accept="image/*,.pdf"></div>
+                        <div class="form-group"><label class="form-label">Catatan Awal</label><textarea name="notes" class="form-control" rows="3" placeholder="Contoh: cold/warm/hot"></textarea></div>
+                        <button type="submit" class="btn btn--primary">Simpan Lead</button>
+                    </form>
+                </div>
+                <div class="data-summary">
+                    <div id="leadTabsContainer" class="tabs-container">
+                        <button class="tab-button active" data-tab="leadContent">Lead</button>
+                        <button class="tab-button" data-tab="prospectContent">Prospect</button>
+                        <button class="tab-button" data-tab="dealContent">Deal</button>
+                    </div>
+                    <div id="leadTabContentContainer">
+                        <div id="leadContent" class="tab-content active summary-table"></div>
+                        <div id="prospectContent" class="tab-content summary-table"></div>
+                        <div id="dealContent" class="tab-content summary-table"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Halaman Input Lainnya (Struktur tetap sama) -->
+            <div id="upload-canvasing" class="content-page"><div class="page-header"><h2>Upload Meeting Canvasing & Pitching</h2></div><div class="form-container"><form id="canvasingForm" class="kpi-form" data-sheet-name="Canvasing"><div class="form-group"><label class="form-label">Judul Meeting</label><input type="text" name="meetingTitle" class="form-control" required></div><div class="form-group"><label class="form-label">File PPT/Dokumen</label><input type="file" name="document" class="form-control" accept=".ppt,.pptx,.pdf"></div><div class="form-group"><label class="form-label">Catatan</label><textarea name="notes" class="form-control" rows="3"></textarea></div><button type="submit" class="btn btn--primary">Upload</button></form></div><div class="data-summary"><h3>Riwayat Upload Canvasing</h3><div id="canvasingSummary" class="summary-table"></div></div></div>
+            <div id="upload-promosi" class="content-page"><div class="page-header"><h2>Upload Promosi Campaign Package</h2></div><div class="form-container"><form id="promosiForm" class="kpi-form" data-sheet-name="Promosi"><div class="form-group"><label class="form-label">Nama Campaign</label><input type="text" name="campaignName" class="form-control" required></div><div class="form-group"><label class="form-label">Screenshot Promosi</label><input type="file" name="screenshot" class="form-control" accept="image/*"></div><div class="form-group"><label class="form-label">Platform</label><select name="platform" class="form-control" required><option value="">Pilih Platform</option><option value="Instagram">Instagram</option><option value="Facebook">Facebook</option><option value="Website">Website</option><option value="WhatsApp">WhatsApp</option></select></div><button type="submit" class="btn btn--primary">Upload</button></form></div><div class="data-summary"><h3>Riwayat Upload Promosi</h3><div id="promosiSummary" class="summary-table"></div></div></div>
+            <div id="door-to-door" class="content-page"><div class="page-header"><h2>Door-to-door Perusahaan</h2></div><div class="form-container"><form id="doorToDoorForm" class="kpi-form" data-sheet-name="DoorToDoor"><div class="form-group"><label class="form-label">Tanggal Kunjungan</label><input type="date" name="visitDate" class="form-control" required></div><div class="form-group"><label class="form-label">Nama Instansi</label><input type="text" name="institutionName" class="form-control" required></div><div class="form-group"><label class="form-label">Alamat Lengkap Instansi</label><textarea name="address" class="form-control" rows="2" required></textarea></div><div class="form-group"><label class="form-label">Nama PIC Instansi</label><input type="text" name="picName" class="form-control" required></div><div class="form-group"><label class="form-label">Nomor HP PIC</label><input type="text" name="picPhone" class="form-control" required></div><div class="form-group"><label class="form-label">Hasil Respons Kunjungan</label><textarea name="response" class="form-control" rows="3" required></textarea></div><div class="form-group"><label class="form-label">Bukti Kunjungan</label><input type="file" name="proof" class="form-control" accept="image/*"></div><button type="submit" class="btn btn--primary">Simpan</button></form></div><div class="data-summary"><h3>Rekap Door-to-door</h3><div id="doorToDoorSummary" class="summary-table"></div></div></div>
+            <div id="quotation" class="content-page"><div class="page-header"><h2>Quotation</h2></div><div class="form-container"><form id="quotationForm" class="kpi-form" data-sheet-name="Quotations"><div class="form-group"><label class="form-label">Nama Customer</label><input type="text" name="customerName" class="form-control" required></div><div class="form-group"><label class="form-label">Jenis Produk</label><select name="productType" class="form-control" required><option value="">Pilih Produk</option><option value="Kamar Hotel">Kamar Hotel</option><option value="Venue">Venue</option><option value="Co-Living">Co-Living</option><option value="Package">Package</option></select></div><div class="form-group"><label class="form-label">Upload Dokumen Quotation</label><input type="file" name="quotationDoc" class="form-control" accept=".pdf,.doc,.docx"></div><div class="form-group"><label class="form-label">Nominal Quotation (Rp)</label><input type="number" name="quotationAmount" class="form-control" required></div><div class="form-group"><label class="form-label">Keterangan</label><textarea name="description" class="form-control" rows="3"></textarea></div><button type="submit" class="btn btn--primary">Simpan Quotation</button></form></div><div class="data-summary"><h3>Riwayat Quotation</h3><div id="quotationsSummary" class="summary-table"></div></div></div>
+            <div id="survey-coliving" class="content-page"><div class="page-header"><h2>Survey Pengunjung Outlet Co-Living</h2></div><div class="form-container"><form id="surveyForm" class="kpi-form" data-sheet-name="Surveys"><div class="form-group"><label class="form-label">Nama Customer</label><input type="text" name="customerName" class="form-control" required></div><div class="form-group"><label class="form-label">Jenis Kelamin</label><select name="gender" class="form-control" required><option value="">Pilih Jenis Kelamin</option><option value="Laki-laki">Laki-laki</option><option value="Perempuan">Perempuan</option></select></div><div class="form-group"><label class="form-label">No Telepon</label><input type="text" name="phone" class="form-control" required></div><div class="form-group"><label class="form-label">Tanggal Survey</label><input type="date" name="surveyDate" class="form-control" required></div><div class="form-group"><label class="form-label">Asal Kampus/Tempat Kerja</label><input type="text" name="origin" class="form-control" required></div><div class="form-group"><label class="form-label">Tanggapan Tamu</label><textarea name="feedback" class="form-control" rows="4" required></textarea></div><div class="form-group"><label class="form-label">Upload Dokumentasi</label><input type="file" name="documentation" class="form-control" accept="image/*"></div><button type="submit" class="btn btn--primary">Simpan Survey</button></form></div><div class="data-summary"><h3>Hasil Survey</h3><div id="surveysSummary" class="summary-table"></div></div></div>
+            <div id="laporan-mingguan" class="content-page"><div class="page-header"><h2>Upload Hasil Meeting Laporan Ringkas Mingguan</h2></div><div class="form-container"><form id="laporanForm" class="kpi-form" data-sheet-name="Reports"><div class="form-group"><label class="form-label">Periode Laporan</label><input type="week" name="reportPeriod" class="form-control" required></div><div class="form-group"><label class="form-label">Upload Dokumen Laporan</label><input type="file" name="reportDoc" class="form-control" accept=".pdf,.doc,.docx"></div><div class="form-group"><label class="form-label">Feedback Manajemen</label><textarea name="managementFeedback" class="form-control" rows="4"></textarea></div><div class="form-group"><label class="form-label">Catatan Tambahan</label><textarea name="additionalNotes" class="form-control" rows="3"></textarea></div><button type="submit" class="btn btn--primary">Upload Laporan</button></form></div><div class="data-summary"><h3>Riwayat Laporan Mingguan</h3><div id="reportsSummary" class="summary-table"></div></div></div>
+            <div id="crm-survey" class="content-page"><div class="page-header"><h2>CRM Survey Kompetitor</h2></div><div class="form-container"><form id="crmSurveyForm" class="kpi-form" data-sheet-name="CRMSurveys"><div class="form-group"><label class="form-label">Nama Kompetitor</label><input type="text" name="competitorName" class="form-control" required></div><div class="form-group"><label class="form-label">Website</label><input type="url" name="website" class="form-control" placeholder="https://"></div><div class="form-group"><label class="form-label">Product</label><textarea name="product" class="form-control" rows="3" required></textarea></div><div class="form-group"><label class="form-label">Detail Harga</label><textarea name="priceDetails" class="form-control" rows="4" required></textarea></div><button type="submit" class="btn btn--primary">Simpan Survey</button></form></div><div class="data-summary"><h3>Data Survey Kompetitor</h3><div id="crmSurveysSummary" class="summary-table"></div></div></div>
+            <div id="konversi-venue" class="content-page"><div class="page-header"><h2>Jumlah Konversi Booking Venue (Barter)</h2></div><div class="form-container"><form id="konversiForm" class="kpi-form" data-sheet-name="Conversions"><div class="form-group"><label class="form-label">Nama Event/Acara</label><input type="text" name="eventName" class="form-control" required></div><div class="form-group"><label class="form-label">Nama Client</label><input type="text" name="clientName" class="form-control" required></div><div class="form-group"><label class="form-label">Tanggal Event</label><input type="date" name="eventDate" class="form-control" required></div><div class="form-group"><label class="form-label">Jenis Venue</label><select name="venueType" class="form-control" required><option value="">Pilih Jenis Venue</option><option value="Rooftop Garden">Rooftop Garden</option><option value="Hall Area">Hall Area</option><option value="VIP Room">VIP Room</option><option value="Lainnya">Lainnya</option></select></div><div class="form-group"><label class="form-label">Nilai Barter (Rp)</label><input type="number" name="barterValue" class="form-control" required></div><div class="form-group"><label class="form-label">Keterangan Barter</label><textarea name="barterDescription" class="form-control" rows="3" required></textarea></div><div class="form-group"><label for="barterAgreementFile" class="form-label">Upload File Perjanjian Barter</label><input type="file" id="barterAgreementFile" name="barterAgreementFile" class="form-control" accept="image/*,.pdf,.doc,.docx"></div><button type="submit" class="btn btn--primary">Simpan Konversi</button></form></div><div class="data-summary"><h3>Riwayat Konversi Venue</h3><div id="conversionsSummary" class="summary-table"></div></div></div>
+            <div id="event-networking" class="content-page"><div class="page-header"><h2>Mengikuti Event/Komunitas/Networking</h2></div><div class="form-container"><form id="eventForm" class="kpi-form" data-sheet-name="Events"><div class="form-group"><label class="form-label">Nama Event</label><input type="text" name="eventName" class="form-control" required></div><div class="form-group"><label class="form-label">Jenis Event</label><select name="eventType" class="form-control" required><option value="">Pilih Jenis Event</option><option value="Networking">Networking</option><option value="Seminar">Seminar</option><option value="Workshop">Workshop</option><option value="Exhibition">Exhibition</option><option value="Conference">Conference</option></select></div><div class="form-group"><label class="form-label">Tanggal Event</label><input type="date" name="eventDate" class="form-control" required></div><div class="form-group"><label class="form-label">Lokasi Event</label><input type="text" name="eventLocation" class="form-control" required></div><div class="form-group"><label class="form-label">Penyelenggara</label><input type="text" name="organizer" class="form-control" required></div><div class="form-group"><label class="form-label">Hasil/Manfaat yang Diperoleh</label><textarea name="benefits" class="form-control" rows="4" required></textarea></div><div class="form-group"><label class="form-label">Upload Dokumentasi</label><input type="file" name="documentation" class="form-control" accept="image/*"></div><button type="submit" class="btn btn--primary">Simpan Event</button></form></div><div class="data-summary"><h3>Riwayat Event</h3><div id="eventsSummary" class="summary-table"></div></div></div>
+            <div id="launch-campaign" class="content-page"><div class="page-header"><h2>Launch Campaign Package</h2></div><div class="form-container"><form id="campaignForm" class="kpi-form" data-sheet-name="Campaigns"><div class="form-group"><label class="form-label">Judul Kampanye</label><input type="text" name="campaignTitle" class="form-control" required></div><div class="form-group"><label class="form-label">Target Pasar</label><input type="text" name="targetMarket" class="form-control" required></div><div class="form-group"><label class="form-label">Tanggal Mulai Campaign</label><input type="date" name="campaignStartDate" class="form-control" required></div><div class="form-group"><label class="form-label">Tanggal Berakhir Campaign</label><input type="date" name="campaignEndDate" class="form-control" required></div><div class="form-group"><label class="form-label">Deskripsi Konsep</label><textarea name="conceptDescription" class="form-control" rows="4" required></textarea></div><div class="form-group"><label class="form-label">Potensi Traffic/Konversi</label><textarea name="potentialConversion" class="form-control" rows="3" required></textarea></div><div class="form-group"><label class="form-label">Budget Campaign (Rp)</label><input type="number" name="budget" class="form-control" required></div><div class="form-group"><label class="form-label">Upload Materi Campaign</label><input type="file" name="campaignMaterial" class="form-control" accept="image/*,.pdf"></div><button type="submit" class="btn btn--primary">Launch Campaign</button></form></div><div class="data-summary"><h3>Riwayat Campaign</h3><div id="campaignsSummary" class="summary-table"></div></div></div>
+        </main>
+    </div>
+
+    <!-- Modal untuk Update Status Lead -->
+    <div id="updateLeadModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header"><h3>Update Status Lead</h3><button class="close-button" onclick="closeModal()">&times;</button></div>
+            <form id="updateLeadForm">
+                <input type="hidden" id="updateLeadId" name="id">
+                <div class="form-group"><label class="form-label">Customer</label><p id="modalCustomerName" style="font-weight: bold;"></p></div>
+                <div class="form-group"><label class="form-label">Status Saat Ini</label><p id="modalCurrentStatus" class="status" style="font-weight: bold; padding-left: 0;"></p></div>
+                <div class="form-group"><label for="updateStatus" class="form-label">Ubah Status Menjadi</label><select id="updateStatus" name="status" class="form-control" required></select></div>
+                <div class="form-group"><label for="statusLog" class="form-label">Catatan Log Status</label><textarea id="statusLog" name="statusLog" class="form-control" rows="3" required></textarea></div>
+                <div id="proofOfDealContainer" class="form-group" style="display: none;">
+                    <label for="modalProofOfDeal" class="form-label">Bukti Deal (Invoice, Bukti Transfer, dll)</label>
+                    <input type="file" id="modalProofOfDeal" name="proofOfDeal" class="form-control" accept="image/*,.pdf">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px;"><button type="button" class="btn btn--secondary" onclick="closeModal()">Batal</button><button type="submit" class="btn btn--primary">Simpan Perubahan</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- [MODIFIED] Modal untuk Edit/Revisi Data -->
+    <div id="editModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="editModalTitle">Edit Data</h3>
+                <button class="close-button" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="editModalBody">
+                <div id="rejectionNotesContainer" class="rejection-notes-card" style="display: none;">
+                    <h4>Catatan Penolakan</h4>
+                    <p id="rejectionNotesText"></p>
+                </div>
+                <form id="editForm">
+                    <!-- Form fields will be dynamically injected here -->
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal baru untuk menampilkan detail generik -->
+    <div id="detailModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header"><h3 id="detailModalTitle">Detail Data</h3><button class="close-button" onclick="closeDetailModal()">&times;</button></div>
+            <div id="detailModalBody"></div>
+        </div>
+    </div>
+
+
+    <script src="utils.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

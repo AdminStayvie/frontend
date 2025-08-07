@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - KPI Sales & Marketing</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="loginPage" class="page">
+        <div class="login-container">
+            <div class="card login-card">
+                <div class="card__body">
+                    <div class="login-header">
+                        <h1>KPI Sales & Marketing</h1>
+                        <h2>Stayie Dinoyo Hotel Prime</h2>
+                    </div>
+                    <form id="loginForm" class="login-form">
+                        <div class="form-group">
+                            <label for="username" class="form-label">Email</label>
+                            <input type="email" id="username" class="form-control" required autocomplete="username">
+                        </div>
+                        <div class="form-group password-container">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" id="password" class="form-control" required autocomplete="current-password">
+                            <span id="togglePassword" class="toggle-password-icon">
+                            </span>
+                        </div>
+                        <button type="submit" class="btn btn--primary btn--full-width">Login</button>
+                        <div id="errorMessage" class="message error" style="display: none; margin-top: 16px;"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Script khusus untuk halaman login -->
+    <script src="login.js"></script>
+</body>
+</html>
