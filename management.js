@@ -1,7 +1,7 @@
 /**
  * @file management.js
  * @description Logika lengkap untuk dashboard manajemen, diadaptasi untuk backend MongoDB.
- * @version 16.0.0 - Versi final dengan semua fungsi UI dan logika CRUD.
+ * @version 16.1.0 - [FIX] Menyamakan semua nama koleksi (case-sensitivity) agar sesuai dengan database.
  */
 
 // --- INISIALISASI PENGGUNA & KONSTANTA ---
@@ -66,7 +66,7 @@ const CONFIG = {
         'Prospects': { dataKey: 'Prospects', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
         'B2BBookings': { dataKey: 'B2BBookings', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', proofOfDeal: 'Bukti Deal', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
         'VenueBookings': { dataKey: 'VenueBookings', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', proofOfDeal: 'Bukti Deal', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
-        'DealLainnya': { dataKey: 'DealLainnya', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', proofOfDeal: 'Bukti Deal', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
+        'DealLainnya': { dataKey: 'Deal Lainnya', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', proofOfDeal: 'Bukti Deal', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
         'Canvasing': { dataKey: 'Canvasing', detailLabels: { datestamp: 'Waktu Upload', sales: 'Sales', meetingTitle: 'Judul Meeting', document: 'File', notes: 'Catatan', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
         'Promosi': { dataKey: 'Promosi', detailLabels: { datestamp: 'Waktu Upload', sales: 'Sales', campaignName: 'Nama Campaign', platform: 'Platform', screenshot: 'Screenshot', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' }},
         'DoorToDoor': { dataKey: 'DoorToDoor', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', visitDate: 'Tanggal Kunjungan', institutionName: 'Nama Instansi', address: 'Alamat', picName: 'Nama PIC', picPhone: 'Kontak PIC', response: 'Hasil Kunjungan', proof: 'Bukti', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
@@ -101,7 +101,7 @@ const TARGET_CONFIG = {
         { id: 14, name: "Launch Campaign Package", target: 1, penalty: 150000, dataKey: 'Campaigns' }
     ]
 };
-const ALL_DATA_KEYS = Object.values(TARGET_CONFIG).flat().map(t => t.dataKey);
+const ALL_DATA_KEYS = Object.keys(CONFIG.dataMapping);
 
 // =================================================================================
 // FUNGSI PENGAMBILAN DATA
@@ -124,7 +124,7 @@ async function loadInitialData(isInitialLoad = false) {
         ]);
 
         allData = fetchedData;
-        allSalesUsers = salesUsers; // Simpan seluruh objek user
+        allSalesUsers = salesUsers;
         allData.kpiSettings = kpiSettings;
         allData.timeOff = timeOff.entries || [];
         allData.cutoffSettings = cutoffSettings;
@@ -160,7 +160,7 @@ async function loadPendingEntries() {
 
     try {
         pendingEntries = {}; 
-        const collectionsToFetch = Object.keys(CONFIG.dataMapping);
+        const collectionsToFetch = Object.values(CONFIG.dataMapping).map(m => m.dataKey);
         const dateFilter = dateFilterInput.value ? `&startDate=${new Date(dateFilterInput.value).toISOString()}&endDate=${new Date(dateFilterInput.value + 'T23:59:59.999Z').toISOString()}` : '';
         
         const fetchPromises = collectionsToFetch.map(collectionName =>
@@ -218,8 +218,8 @@ async function handleValidation(buttonElement, sheetName, id, type) {
         row.style.opacity = '0';
         setTimeout(() => {
             row.remove();
-            loadPendingEntries(); // Cukup muat ulang data pending, data utama akan di-refresh saat filter diubah
-            loadInitialData(); // Muat ulang data utama untuk update dashboard
+            loadPendingEntries();
+            loadInitialData();
         }, 500);
 
     } catch (error) {
@@ -244,10 +244,10 @@ function exportAllDataAsExcel() {
         const wb = XLSX.utils.book_new();
         const sheetOrder = Object.keys(CONFIG.dataMapping);
 
-        sheetOrder.forEach(collectionName => {
-            const mapping = CONFIG.dataMapping[collectionName];
-            const dataKey = mapping.dataKey;
-            const data = allData[dataKey];
+        sheetOrder.forEach(key => {
+            const mapping = CONFIG.dataMapping[key];
+            const collectionName = mapping.dataKey;
+            const data = allData[collectionName];
 
             if (data && data.length > 0) {
                 const headers = Object.values(mapping.detailLabels);
@@ -255,12 +255,12 @@ function exportAllDataAsExcel() {
 
                 const sheetData = data.map(row => {
                     const newRow = {};
-                    headerKeys.forEach(key => {
-                        const headerName = mapping.detailLabels[key];
-                        let value = row[key];
-                        if (key === 'timestamp' && value) {
+                    headerKeys.forEach(headerKey => {
+                        const headerName = mapping.detailLabels[headerKey];
+                        let value = row[headerKey];
+                        if (headerKey === 'timestamp' && value) {
                             value = new Date(value).toLocaleString('id-ID');
-                        } else if ((key.toLowerCase().includes('amount') || key.toLowerCase().includes('budget') || key.toLowerCase().includes('value')) && typeof value === 'number') {
+                        } else if ((headerKey.toLowerCase().includes('amount') || headerKey.toLowerCase().includes('budget') || headerKey.toLowerCase().includes('value')) && typeof value === 'number') {
                             value = formatCurrency(value);
                         }
                         newRow[headerName] = value !== undefined && value !== null ? value : '';
@@ -453,7 +453,7 @@ function updateStatCards(penalties) {
     
     const salesPerformance = {};
     allSalesUsers.forEach(salesUser => {
-        salesPerformance[salesUser.name] = ALL_DATA_KEYS.reduce((total, key) => total + getFilteredData(salesUser.name, key, ['Approved']).length, 0);
+        salesPerformance[salesUser.name] = ALL_DATA_KEYS.reduce((total, key) => total + getFilteredData(salesUser.name, CONFIG.dataMapping[key].dataKey, ['Approved']).length, 0);
     });
     const topSales = Object.keys(salesPerformance).length > 0 ? Object.keys(salesPerformance).reduce((a, b) => salesPerformance[a] > salesPerformance[b] ? a : b) : 'N/A';
     document.getElementById('topSales').textContent = topSales;
@@ -464,7 +464,7 @@ function updateLeaderboard(penalties) {
     const container = document.getElementById('leaderboard');
     if (!container) return;
     const leaderboardData = allSalesUsers.map(salesUser => {
-        const totalActivities = ALL_DATA_KEYS.reduce((sum, key) => sum + getFilteredData(salesUser.name, key, ['Approved']).length, 0);
+        const totalActivities = ALL_DATA_KEYS.reduce((sum, key) => sum + getFilteredData(salesUser.name, CONFIG.dataMapping[key].dataKey, ['Approved']).length, 0);
         return { name: salesUser.name, total: totalActivities, penalty: penalties.bySales[salesUser.name] || 0 };
     });
     leaderboardData.sort((a, b) => b.total - a.total);
@@ -626,7 +626,8 @@ function updateTeamValidationBreakdown() {
     if (!container) return;
     let total = 0, approved = 0, pending = 0, rejected = 0;
     ALL_DATA_KEYS.forEach(key => {
-        const data = allData[key] || [];
+        const collectionName = CONFIG.dataMapping[key].dataKey;
+        const data = allData[collectionName] || [];
         if(Array.isArray(data)) {
             data.forEach(item => {
                 if(item && item.validationStatus) {
@@ -780,7 +781,10 @@ function closeDetailModal() {
 function openDetailModal(itemId, sheetName) {
     const items = pendingEntries[sheetName] || [];
     const item = items.find(d => d && d._id === itemId);
-    const mapping = CONFIG.dataMapping[sheetName];
+    
+    // Find the correct mapping key
+    const mappingKey = Object.keys(CONFIG.dataMapping).find(key => CONFIG.dataMapping[key].dataKey === sheetName);
+    const mapping = CONFIG.dataMapping[mappingKey];
 
     if (!item || !mapping) {
         console.error("Data atau mapping tidak ditemukan untuk modal:", itemId, sheetName);
