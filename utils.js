@@ -1,7 +1,7 @@
 /**
  * @file utils.js
  * @description Berisi fungsi-fungsi utilitas yang digunakan bersama di seluruh aplikasi KPI.
- * @version 1.1.0 - Added robust date parsing
+ * @version 2.0.0 - Disederhanakan dan divalidasi.
  */
 
 // =================================================================================
@@ -14,7 +14,10 @@
  * @returns {string} String mata uang yang diformat.
  */
 function formatCurrency(amount) {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount || 0);
+    if (typeof amount !== 'number') {
+        amount = Number(amount) || 0;
+    }
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
 }
 
 /**
@@ -25,47 +28,13 @@ function formatCurrency(amount) {
 function formatDate(dateStr) {
     if (!dateStr) return '';
     const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return 'Invalid Date';
+    if (isNaN(date.getTime())) return 'Tanggal Tidak Valid';
     return new Intl.DateTimeFormat('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }).format(date);
 }
 
 // =================================================================================
 // FUNGSI MANIPULASI TANGGAL
 // =================================================================================
-
-/**
- * [NEW] Mem-parsing string tanggal kustom (e.g., "24/07/2025 11.09") menjadi objek Date.
- * Juga menangani format ISO standar untuk data baru.
- * @param {string} dateString - String tanggal yang akan di-parse.
- * @returns {Date|null} Objek Date atau null jika format tidak valid.
- */
-function parseCustomDate(dateString) {
-    if (!dateString || typeof dateString !== 'string') return null;
-
-    // Coba parsing format ISO terlebih dahulu (untuk data baru yang disimpan aplikasi)
-    const isoDate = new Date(dateString);
-    if (!isNaN(isoDate.getTime()) && dateString.includes('T')) {
-        return isoDate;
-    }
-
-    // Coba parsing format kustom "dd/MM/yyyy HH.mm" atau "dd/MM/yyyy HH:mm" dari data impor
-    const parts = dateString.match(/(\d{2})\/(\d{2})\/(\d{4}).*(\d{2})[:.](\d{2})/);
-    if (parts) {
-        // parts[1] = day, parts[2] = month, parts[3] = year, parts[4] = hour, parts[5] = minute
-        const day = parseInt(parts[1], 10);
-        const month = parseInt(parts[2], 10) - 1; // Month is 0-indexed in JS
-        const year = parseInt(parts[3], 10);
-        const hour = parseInt(parts[4], 10);
-        const minute = parseInt(parts[5], 10);
-        const date = new Date(year, month, day, hour, minute);
-        if (!isNaN(date.getTime())) {
-            return date;
-        }
-    }
-
-    return null; // Return null jika tidak ada format yang cocok
-}
-
 
 /**
  * Mendapatkan tanggal awal minggu (Senin) dari tanggal yang diberikan.
@@ -87,6 +56,7 @@ function getWeekStart(date = new Date()) {
  * @returns {string} String tanggal dengan format YYYY-MM-DD.
  */
 function toLocalDateString(date) {
+    if (!(date instanceof Date) || isNaN(date)) return '';
     const year = date.getFullYear();
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const day = date.getDate().toString().padStart(2, '0');
@@ -94,17 +64,18 @@ function toLocalDateString(date) {
 }
 
 /**
- * Mendapatkan tanggal dan waktu saat ini dalam format lokal (id-ID).
+ * Mendapatkan tanggal dan waktu saat ini dalam format lokal (id-ID) yang konsisten.
  * @returns {string} String tanggal dan waktu yang diformat.
  */
 function getDatestamp() {
     return new Date().toLocaleString('id-ID', {
-        hour: '2-digit',
-        minute: '2-digit',
         day: '2-digit',
         month: '2-digit',
-        year: 'numeric'
-    }).replace(/\./g, ':'); // Ganti titik dengan titik dua agar konsisten
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    }).replace(/\./g, ':');
 }
 
 
@@ -115,7 +86,7 @@ function getDatestamp() {
 /**
  * Menampilkan pesan notifikasi sementara kepada pengguna.
  * @param {string} message - Pesan yang akan ditampilkan.
- * @param {string} [type='info'] - Jenis pesan ('info', 'success', 'error').
+ * @param {string} [type='info'] - Jenis pesan ('info', 'success', 'error', 'warning').
  */
 function showMessage(message, type = 'info') {
     const oldMessage = document.querySelector('.app-message');
@@ -127,9 +98,12 @@ function showMessage(message, type = 'info') {
     notification.style.cssText = `
         position: fixed; top: 80px; right: 20px; z-index: 2000;
         padding: 12px 20px; border-radius: 8px;
+        background-color: var(--color-surface);
+        color: var(--color-text);
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         opacity: 0; transform: translateX(20px);
         transition: opacity 300ms ease, transform 300ms ease;
+        border-left: 5px solid var(--color-${type});
     `;
 
     document.body.appendChild(notification);
@@ -165,15 +139,6 @@ function updateDateTime() {
     }
 }
 
-/**
- * Proses logout pengguna dengan menghapus data dari localStorage.
- */
-function logout() {
-    localStorage.removeItem('currentUser');
-    auth.signOut();
-    window.location.href = 'index.html';
-}
-
 // =================================================================================
 // FUNGSI FILTER PERIODE
 // =================================================================================
@@ -200,19 +165,21 @@ function setupFilters(onFilterChange) {
 
     generatePeriodOptions(periodFilter);
 
-    yearFilter.addEventListener('change', (e) => {
-        selectedYear = e.target.value;
-        generatePeriodOptions(periodFilter);
+    const filterChanged = () => {
         if (typeof onFilterChange === 'function') {
             onFilterChange();
         }
+    };
+
+    yearFilter.addEventListener('change', (e) => {
+        selectedYear = e.target.value;
+        generatePeriodOptions(periodFilter);
+        filterChanged();
     });
 
     periodFilter.addEventListener('change', (e) => {
         selectedPeriod = e.target.value;
-        if (typeof onFilterChange === 'function') {
-            onFilterChange();
-        }
+        filterChanged();
     });
 }
 
