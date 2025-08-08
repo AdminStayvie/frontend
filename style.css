@@ -1494,3 +1494,55 @@ input:checked + .toggle-slider:before {
 .card.is-collapsed .collapse-btn svg {
     transform: rotate(-90deg);
 }
+
+/* [MODIFIED] Gaya untuk Kontrol Tabel */
+.table-controls {
+    display: flex;
+    gap: var(--space-8);
+    align-items: center;
+    padding: var(--space-8) var(--space-12);
+    border-bottom: 1px solid var(--color-border);
+    background-color: var(--color-secondary);
+}
+
+.summary-table .table-controls {
+    border-top-left-radius: var(--radius-base);
+    border-top-right-radius: var(--radius-base);
+}
+
+.summary-table table {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+.sort-btn .arrow {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 10px;
+    line-height: 1;
+    width: 10px;
+    text-align: center;
+    transition: transform 0.2s ease-in-out;
+}
+
+.sort-btn.active {
+    background-color: var(--color-primary);
+    color: var(--color-btn-primary-text) !important;
+    border-color: var(--color-primary);
+}
+
+.sort-btn.active:hover {
+    background-color: var(--color-primary-hover);
+}
+
+#leadTabContentContainer .tab-content {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-top: none;
+    border-radius: 0 0 var(--radius-base) var(--radius-base);
+    overflow: hidden;
+}
+
+#leadTabContentContainer .tab-content .table-controls {
+    border-radius: 0;
+}
