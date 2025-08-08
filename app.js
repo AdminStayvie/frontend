@@ -1,7 +1,7 @@
 /**
  * @file app.js
  * @description Logika utama untuk dashboard KPI Sales, diadaptasi untuk backend MongoDB.
- * @version 16.0.0 - Menambahkan sidebar untuk data yang ditolak.
+ * @version 17.0.0 - Disesuaikan untuk upload file ke folder dinamis per koleksi dan sales.
  */
 
 // --- INISIALISASI PENGGUNA & PENJAGA HALAMAN ---
@@ -12,9 +12,13 @@ let currentUser;
 async function fetchWithAuth(url, options = {}) {
     const token = localStorage.getItem('token');
     const headers = {
-        'Content-Type': 'application/json',
+        // Hapus 'Content-Type' default agar bisa di-set otomatis untuk FormData
         ...options.headers,
     };
+
+    if (!options.body instanceof FormData) {
+        headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -169,32 +173,40 @@ function generateTableControls(dataKey) {
 // FUNGSI PENGAMBILAN & PENGIRIMAN DATA
 // =================================================================================
 
-async function uploadFile(file) {
+/**
+ * [MODIFIED] Mengirim file ke backend internal yang menyimpan ke disk secara dinamis.
+ * @param {File} file - Objek file dari input.
+ * @param {string} collectionName - Nama koleksi untuk menentukan folder penyimpanan.
+ * @returns {Promise<string|null>} Path relatif dari file yang berhasil di-upload.
+ */
+async function uploadFile(file, collectionName) {
     if (!file) return null;
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz0o1xUtRSksLhlZCgDYCyJt-FS1bM2rKzIIuKLPDV0IRbo_NWlR1PI1s0P04ESO_VyBw/exec";
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ fileName: file.name, mimeType: file.type, fileData: e.target.result }),
-                    headers: { "Content-Type": "text/plain;charset=utf-8" },
-                });
-                const result = await response.json();
-                if (result.status === "success" && result.url) {
-                    resolve(result.url);
-                } else {
-                    throw new Error(result.message || 'Gagal mengunggah file.');
-                }
-            } catch (error) {
-                reject(error);
-            }
-        };
-        reader.onerror = error => reject(error);
-        reader.readAsDataURL(file);
-    });
+    if (!collectionName) {
+        throw new Error("Nama koleksi dibutuhkan untuk upload file.");
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        // Gunakan URL dinamis dengan nama koleksi
+        const result = await fetchWithAuth(`${API_BASE_URL}/upload/${collectionName}`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (result.status === "success" && result.url) {
+            // Backend mengembalikan path relatif seperti /uploads/Leads/Nama_Sales/namafile.jpg
+            return result.url;
+        } else {
+            throw new Error(result.message || 'Gagal mengunggah file ke server.');
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        throw error;
+    }
 }
+
 
 async function loadInitialData() {
     showMessage("Memuat data dari server...", "info");
@@ -273,7 +285,8 @@ async function handleFormSubmit(e) {
         
         for (const [key, value] of formData.entries()) {
             if (value instanceof File && value.size > 0) {
-                const downloadURL = await uploadFile(value);
+                // [MODIFIED] Kirim 'collectionName' saat memanggil uploadFile
+                const downloadURL = await uploadFile(value, collectionName);
                 data[key] = downloadURL;
             }
         }
@@ -370,7 +383,8 @@ async function handleUpdateLead(e) {
             
             const proofInput = form.querySelector('#modalProofOfDeal');
             if (proofInput && proofInput.files.length > 0) {
-                newData.proofOfDeal = await uploadFile(proofInput.files[0]);
+                // [MODIFIED] Kirim 'dealCollectionName' saat upload bukti deal
+                newData.proofOfDeal = await uploadFile(proofInput.files[0], dealCollectionName);
             } else if (!leadData.proofOfDeal) {
                 throw new Error('Bukti deal wajib diunggah saat mengubah status menjadi "Deal".');
             }
@@ -425,7 +439,8 @@ async function handleEditFormSubmit(e) {
         for (const [key, value] of formData.entries()) {
             if (value instanceof File && value.size > 0) {
                 fileInputPromises.push(
-                    uploadFile(value).then(downloadURL => {
+                    // [MODIFIED] Kirim 'collectionName' saat upload file editan
+                    uploadFile(value, collectionName).then(downloadURL => {
                         dataToUpdate[key] = downloadURL;
                     })
                 );
@@ -511,14 +526,13 @@ function updateAllUI() {
         updateValidationBreakdown();
         renderPerformanceReport();
         updateSidebarMenuState();
-        updateRejectedDataSidebar(); // [NEW] Panggil fungsi untuk update sidebar
+        updateRejectedDataSidebar();
     } catch (error) {
         console.error("Error updating UI:", error);
         showMessage("Terjadi kesalahan saat menampilkan data.", "error");
     }
 }
 
-// [NEW] Fungsi untuk menampilkan data yang ditolak di sidebar
 function updateRejectedDataSidebar() {
     const container = document.getElementById('rejectedDataSidebar');
     const badge = document.getElementById('rejectedCountBadge');
@@ -1091,7 +1105,8 @@ function openDetailModal(itemId, dataKey) {
             else if (key === 'validationStatus') {
                 dd.innerHTML = `<span class="status status--${(value || 'pending').toLowerCase()}">${value || 'Pending'}</span>`;
                 detailList.appendChild(dt); detailList.appendChild(dd); continue;
-            } else if (typeof value === 'string' && (value.startsWith('http'))) {
+            } else if (typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads/'))) {
+                 // Browser akan otomatis menggabungkan path relatif dengan domain saat ini
                  dd.innerHTML = `<a href="${value}" target="_blank" rel="noopener noreferrer">Lihat File/Link</a>`;
                 detailList.appendChild(dt); detailList.appendChild(dd); continue;
             }
