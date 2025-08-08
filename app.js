@@ -1,7 +1,7 @@
 /**
  * @file app.js
  * @description Logika utama untuk dashboard KPI Sales, diadaptasi untuk backend MongoDB.
- * @version 17.0.0 - Disesuaikan untuk upload file ke folder dinamis per koleksi dan sales.
+ * @version 17.1.0 - Memperbaiki URL endpoint pada handleFormSubmit.
  */
 
 // --- INISIALISASI PENGGUNA & PENJAGA HALAMAN ---
@@ -32,17 +32,22 @@ async function fetchWithAuth(url, options = {}) {
         throw new Error('Sesi Anda telah berakhir. Silakan login kembali.');
     }
     
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Terjadi kesalahan pada server.');
-    }
-
-    // Cek jika response punya body sebelum parsing JSON
+    // [FIX] Cek jika response bukan JSON sebelum mencoba parsing
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.indexOf("application/json") !== -1) {
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Terjadi kesalahan pada server.');
+        }
         return response.json();
     } else {
-        return; // Tidak ada body atau bukan JSON
+        // Jika bukan JSON, berarti ada error server (seperti 404)
+        // yang mengembalikan halaman HTML.
+        if (!response.ok) {
+             throw new Error(`Server error: ${response.status} ${response.statusText}. URL mungkin salah.`);
+        }
+        // Jika response OK tapi bukan JSON, kembalikan null atau text jika perlu.
+        return null; 
     }
 }
 
@@ -173,12 +178,6 @@ function generateTableControls(dataKey) {
 // FUNGSI PENGAMBILAN & PENGIRIMAN DATA
 // =================================================================================
 
-/**
- * [MODIFIED] Mengirim file ke backend internal yang menyimpan ke disk secara dinamis.
- * @param {File} file - Objek file dari input.
- * @param {string} collectionName - Nama koleksi untuk menentukan folder penyimpanan.
- * @returns {Promise<string|null>} Path relatif dari file yang berhasil di-upload.
- */
 async function uploadFile(file, collectionName) {
     if (!file) return null;
     if (!collectionName) {
@@ -189,17 +188,15 @@ async function uploadFile(file, collectionName) {
     formData.append('file', file);
 
     try {
-        // Gunakan URL dinamis dengan nama koleksi
         const result = await fetchWithAuth(`${API_BASE_URL}/upload/${collectionName}`, {
             method: 'POST',
             body: formData,
         });
 
-        if (result.status === "success" && result.url) {
-            // Backend mengembalikan path relatif seperti /uploads/Leads/Nama_Sales/namafile.jpg
+        if (result && result.status === "success" && result.url) {
             return result.url;
         } else {
-            throw new Error(result.message || 'Gagal mengunggah file ke server.');
+            throw new Error(result ? result.message : 'Gagal mengunggah file ke server.');
         }
     } catch (error) {
         console.error('Upload error:', error);
@@ -285,7 +282,6 @@ async function handleFormSubmit(e) {
         
         for (const [key, value] of formData.entries()) {
             if (value instanceof File && value.size > 0) {
-                // [MODIFIED] Kirim 'collectionName' saat memanggil uploadFile
                 const downloadURL = await uploadFile(value, collectionName);
                 data[key] = downloadURL;
             }
@@ -302,6 +298,7 @@ async function handleFormSubmit(e) {
             data.statusLog = `${getDatestamp()}: Dibuat sebagai Lead.`;
         }
         
+        // [FIX] URL endpoint untuk menyimpan data harus benar
         await fetchWithAuth(`${API_BASE_URL}/data/${collectionName}`, {
             method: 'POST',
             body: JSON.stringify(data)
@@ -383,7 +380,6 @@ async function handleUpdateLead(e) {
             
             const proofInput = form.querySelector('#modalProofOfDeal');
             if (proofInput && proofInput.files.length > 0) {
-                // [MODIFIED] Kirim 'dealCollectionName' saat upload bukti deal
                 newData.proofOfDeal = await uploadFile(proofInput.files[0], dealCollectionName);
             } else if (!leadData.proofOfDeal) {
                 throw new Error('Bukti deal wajib diunggah saat mengubah status menjadi "Deal".');
@@ -439,7 +435,6 @@ async function handleEditFormSubmit(e) {
         for (const [key, value] of formData.entries()) {
             if (value instanceof File && value.size > 0) {
                 fileInputPromises.push(
-                    // [MODIFIED] Kirim 'collectionName' saat upload file editan
                     uploadFile(value, collectionName).then(downloadURL => {
                         dataToUpdate[key] = downloadURL;
                     })
@@ -1106,8 +1101,7 @@ function openDetailModal(itemId, dataKey) {
                 dd.innerHTML = `<span class="status status--${(value || 'pending').toLowerCase()}">${value || 'Pending'}</span>`;
                 detailList.appendChild(dt); detailList.appendChild(dd); continue;
             } else if (typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads/'))) {
-                 // Browser akan otomatis menggabungkan path relatif dengan domain saat ini
-                 dd.innerHTML = `<a href="${value}" target="_blank" rel="noopener noreferrer">Lihat File/Link</a>`;
+                 dd.innerHTML = `<a href="${API_BASE_URL.replace('/api', '')}${value}" target="_blank" rel="noopener noreferrer">Lihat File/Link</a>`;
                 detailList.appendChild(dt); detailList.appendChild(dd); continue;
             }
             dd.textContent = value;
