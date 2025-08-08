@@ -1,7 +1,7 @@
 /**
  * @file management.js
  * @description Logika lengkap untuk dashboard manajemen, diadaptasi untuk backend MongoDB.
- * @version 16.0.0 - Versi final dengan semua fungsi UI dan logika CRUD.
+ * @version 17.0.0 - Menambahkan fitur import data dari JSON.
  */
 
 // --- INISIALISASI PENGGUNA & KONSTANTA ---
@@ -11,6 +11,7 @@ let allData = {};
 let allSalesUsers = [];
 let pendingEntries = {};
 let managementReportWeekOffset = 0;
+let parsedJsonData = null; // [NEW] Variabel untuk menyimpan data JSON yang akan diimpor
 
 // Fungsi fetch dengan otentikasi
 async function fetchWithAuth(url, options = {}) {
@@ -62,21 +63,21 @@ function checkAuth() {
 // --- KONFIGURASI (Sama seperti sebelumnya, untuk mapping UI) ---
 const CONFIG = {
     dataMapping: {
-        'Leads': { dataKey: 'Leads', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
-        'Prospects': { dataKey: 'Prospects', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
-        'B2BBookings': { dataKey: 'B2BBookings', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', proofOfDeal: 'Bukti Deal', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
-        'VenueBookings': { dataKey: 'VenueBookings', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', proofOfDeal: 'Bukti Deal', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
-        'DealLainnya': { dataKey: 'DealLainnya', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', proofOfDeal: 'Bukti Deal', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
-        'Canvasing': { dataKey: 'Canvasing', detailLabels: { datestamp: 'Waktu Upload', sales: 'Sales', meetingTitle: 'Judul Meeting', document: 'File', notes: 'Catatan', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
-        'Promosi': { dataKey: 'Promosi', detailLabels: { datestamp: 'Waktu Upload', sales: 'Sales', campaignName: 'Nama Campaign', platform: 'Platform', screenshot: 'Screenshot', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' }},
-        'DoorToDoor': { dataKey: 'DoorToDoor', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', visitDate: 'Tanggal Kunjungan', institutionName: 'Nama Instansi', address: 'Alamat', picName: 'Nama PIC', picPhone: 'Kontak PIC', response: 'Hasil Kunjungan', proof: 'Bukti', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
-        'Quotations': { dataKey: 'Quotations', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', productType: 'Jenis Produk', quotationDoc: 'Dokumen', quotationAmount: 'Nominal', description: 'Keterangan', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
-        'Surveys': { dataKey: 'Surveys', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', gender: 'Jenis Kelamin', phone: 'No. Telepon', surveyDate: 'Tanggal Survey', origin: 'Asal', feedback: 'Tanggapan', documentation: 'Dokumentasi', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
-        'Reports': { dataKey: 'Reports', detailLabels: { datestamp: 'Waktu Upload', sales: 'Sales', reportPeriod: 'Periode Laporan', reportDoc: 'Dokumen', managementFeedback: 'Feedback', additionalNotes: 'Catatan Tambahan', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
-        'CRMSurveys': { dataKey: 'CRMSurveys', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', competitorName: 'Nama Kompetitor', website: 'Website', product: 'Produk', priceDetails: 'Detail Harga', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
-        'Conversions': { dataKey: 'Conversions', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', eventName: 'Nama Event', clientName: 'Nama Client', eventDate: 'Tanggal Event', venueType: 'Jenis Venue', barterValue: 'Nilai Barter', barterDescription: 'Keterangan', barterAgreementFile: 'File Perjanjian', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
-        'Events': { dataKey: 'Events', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', eventName: 'Nama Event', eventType: 'Jenis Event', eventDate: 'Tanggal Event', eventLocation: 'Lokasi', organizer: 'Penyelenggara', benefits: 'Hasil/Manfaat', documentation: 'Dokumentasi', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
-        'Campaigns': { dataKey: 'Campaigns', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', campaignTitle: 'Judul Kampanye', targetMarket: 'Target Pasar', campaignStartDate: 'Tgl Mulai', campaignEndDate: 'Tgl Selesai', conceptDescription: 'Deskripsi', potentialConversion: 'Potensi', budget: 'Budget', campaignMaterial: 'Materi', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
+        'Leads': { dataKey: 'Leads', collectionName: 'Leads', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
+        'Prospects': { dataKey: 'Prospects', collectionName: 'Prospects', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
+        'B2BBookings': { dataKey: 'B2BBookings', collectionName: 'B2BBookings', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', proofOfDeal: 'Bukti Deal', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
+        'VenueBookings': { dataKey: 'VenueBookings', collectionName: 'VenueBookings', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', proofOfDeal: 'Bukti Deal', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
+        'DealLainnya': { dataKey: 'DealLainnya', collectionName: 'Deal Lainnya', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', proofOfDeal: 'Bukti Deal', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
+        'Canvasing': { dataKey: 'Canvasing', collectionName: 'Canvasing', detailLabels: { datestamp: 'Waktu Upload', sales: 'Sales', meetingTitle: 'Judul Meeting', document: 'File', notes: 'Catatan', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
+        'Promosi': { dataKey: 'Promosi', collectionName: 'Promosi', detailLabels: { datestamp: 'Waktu Upload', sales: 'Sales', campaignName: 'Nama Campaign', platform: 'Platform', screenshot: 'Screenshot', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' }},
+        'DoorToDoor': { dataKey: 'DoorToDoor', collectionName: 'DoorToDoor', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', visitDate: 'Tanggal Kunjungan', institutionName: 'Nama Instansi', address: 'Alamat', picName: 'Nama PIC', picPhone: 'Kontak PIC', response: 'Hasil Kunjungan', proof: 'Bukti', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
+        'Quotations': { dataKey: 'Quotations', collectionName: 'Quotations', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', productType: 'Jenis Produk', quotationDoc: 'Dokumen', quotationAmount: 'Nominal', description: 'Keterangan', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
+        'Surveys': { dataKey: 'Surveys', collectionName: 'Surveys', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', gender: 'Jenis Kelamin', phone: 'No. Telepon', surveyDate: 'Tanggal Survey', origin: 'Asal', feedback: 'Tanggapan', documentation: 'Dokumentasi', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
+        'Reports': { dataKey: 'Reports', collectionName: 'Reports', detailLabels: { datestamp: 'Waktu Upload', sales: 'Sales', reportPeriod: 'Periode Laporan', reportDoc: 'Dokumen', managementFeedback: 'Feedback', additionalNotes: 'Catatan Tambahan', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
+        'CRMSurveys': { dataKey: 'CRMSurveys', collectionName: 'CRMSurveys', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', competitorName: 'Nama Kompetitor', website: 'Website', product: 'Produk', priceDetails: 'Detail Harga', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
+        'Conversions': { dataKey: 'Conversions', collectionName: 'Conversions', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', eventName: 'Nama Event', clientName: 'Nama Client', eventDate: 'Tanggal Event', venueType: 'Jenis Venue', barterValue: 'Nilai Barter', barterDescription: 'Keterangan', barterAgreementFile: 'File Perjanjian', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
+        'Events': { dataKey: 'Events', collectionName: 'Events', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', eventName: 'Nama Event', eventType: 'Jenis Event', eventDate: 'Tanggal Event', eventLocation: 'Lokasi', organizer: 'Penyelenggara', benefits: 'Hasil/Manfaat', documentation: 'Dokumentasi', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
+        'Campaigns': { dataKey: 'Campaigns', collectionName: 'Campaigns', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', campaignTitle: 'Judul Kampanye', targetMarket: 'Target Pasar', campaignStartDate: 'Tgl Mulai', campaignEndDate: 'Tgl Selesai', conceptDescription: 'Deskripsi', potentialConversion: 'Potensi', budget: 'Budget', campaignMaterial: 'Materi', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
     }
 };
 const TARGET_CONFIG = {
@@ -124,7 +125,7 @@ async function loadInitialData(isInitialLoad = false) {
         ]);
 
         allData = fetchedData;
-        allSalesUsers = salesUsers; // Simpan seluruh objek user
+        allSalesUsers = salesUsers;
         allData.kpiSettings = kpiSettings;
         allData.timeOff = timeOff.entries || [];
         allData.cutoffSettings = cutoffSettings;
@@ -218,8 +219,8 @@ async function handleValidation(buttonElement, sheetName, id, type) {
         row.style.opacity = '0';
         setTimeout(() => {
             row.remove();
-            loadPendingEntries(); // Cukup muat ulang data pending, data utama akan di-refresh saat filter diubah
-            loadInitialData(); // Muat ulang data utama untuk update dashboard
+            loadPendingEntries();
+            loadInitialData();
         }, 500);
 
     } catch (error) {
@@ -229,7 +230,7 @@ async function handleValidation(buttonElement, sheetName, id, type) {
 }
 
 // =================================================================================
-// FUNGSI EKSPOR DATA KE EXCEL
+// FUNGSI EKSPOR & IMPORT DATA
 // =================================================================================
 
 function exportAllDataAsExcel() {
@@ -291,6 +292,113 @@ function exportAllDataAsExcel() {
     } finally {
         exportBtn.disabled = false;
         exportBtn.textContent = 'Download Laporan Excel';
+    }
+}
+
+// [NEW] Fungsi untuk membuka modal import
+function openImportModal() {
+    const modal = document.getElementById('importModal');
+    if (!modal) return;
+
+    const select = document.getElementById('importCollectionSelect');
+    select.innerHTML = '<option value="">-- Pilih Koleksi --</option>';
+
+    Object.keys(CONFIG.dataMapping).forEach(dataKey => {
+        const collectionName = CONFIG.dataMapping[dataKey].collectionName || dataKey;
+        const option = document.createElement('option');
+        option.value = collectionName;
+        option.textContent = collectionName;
+        select.appendChild(option);
+    });
+    
+    document.getElementById('importForm').reset();
+    document.getElementById('importPreview').style.display = 'none';
+    document.getElementById('importForm').querySelector('button[type="submit"]').disabled = true;
+    parsedJsonData = null;
+    modal.classList.add('active');
+}
+
+// [NEW] Fungsi untuk menutup modal import
+function closeImportModal() {
+    const modal = document.getElementById('importModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+// [NEW] Handler saat file JSON dipilih
+async function handleJsonFileSelect(event) {
+    const file = event.target.files[0];
+    const previewDiv = document.getElementById('importPreview');
+    const submitButton = document.getElementById('importForm').querySelector('button[type="submit"]');
+    
+    parsedJsonData = null;
+    previewDiv.style.display = 'none';
+    previewDiv.textContent = '';
+    submitButton.disabled = true;
+
+    if (!file) return;
+
+    try {
+        const fileContent = await file.text();
+        const data = JSON.parse(fileContent);
+
+        if (!Array.isArray(data)) {
+            throw new Error('File JSON harus berisi sebuah array (kumpulan data).');
+        }
+        
+        parsedJsonData = data;
+        previewDiv.innerHTML = `<p class="message info">File <strong>${file.name}</strong> berisi <strong>${data.length}</strong> data. Siap untuk diimpor.</p>`;
+        previewDiv.style.display = 'block';
+        submitButton.disabled = false;
+
+    } catch (error) {
+        previewDiv.innerHTML = `<p class="message error">Gagal membaca file: ${error.message}</p>`;
+        previewDiv.style.display = 'block';
+    }
+}
+
+// [NEW] Handler untuk submit form import
+async function handleImportFormSubmit(e) {
+    e.preventDefault();
+    const collectionSelect = document.getElementById('importCollectionSelect');
+    const collectionName = collectionSelect.value;
+    const button = e.target.querySelector('button[type="submit"]');
+
+    if (!parsedJsonData || parsedJsonData.length === 0) {
+        showMessage('Tidak ada data valid untuk diimpor.', 'error');
+        return;
+    }
+
+    if (!collectionName) {
+        showMessage('Silakan pilih koleksi tujuan.', 'error');
+        return;
+    }
+    
+    button.disabled = true;
+    button.textContent = 'Mengimpor...';
+
+    try {
+        showMessage(`Mengimpor ${parsedJsonData.length} data ke ${collectionName}...`, 'info');
+
+        await fetchWithAuth(`${API_BASE_URL}/data/import`, {
+            method: 'POST',
+            body: JSON.stringify({
+                collection: collectionName,
+                data: parsedJsonData
+            })
+        });
+
+        showMessage('Data berhasil diimpor!', 'success');
+        closeImportModal();
+        loadInitialData(false);
+
+    } catch (error) {
+        showMessage(`Gagal mengimpor: ${error.message}`, 'error');
+        console.error("Import Error:", error);
+    } finally {
+        button.disabled = false;
+        button.textContent = 'Import Data';
     }
 }
 
@@ -950,6 +1058,11 @@ function initializeApp() {
         }
     });
     
+    // [NEW] Event listeners untuk fitur import
+    document.getElementById('importDataBtn')?.addEventListener('click', openImportModal);
+    document.getElementById('jsonFileInput')?.addEventListener('change', handleJsonFileSelect);
+    document.getElementById('importForm')?.addEventListener('submit', handleImportFormSubmit);
+
     // Panggilan data awal
     loadInitialData(true);
 }
