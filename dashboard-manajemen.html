@@ -90,6 +90,18 @@
         .card.is-collapsed .collapse-btn svg {
             transform: rotate(-90deg);
         }
+        /* [NEW] Gaya untuk tombol import */
+        .header-page-actions {
+            display: flex;
+            gap: var(--space-12);
+            align-items: center;
+        }
+        #importForm small {
+            display: block;
+            margin-top: var(--space-4);
+            font-size: var(--font-size-sm);
+            color: var(--color-text-secondary);
+        }
     </style>
 </head>
 <body>
@@ -126,8 +138,11 @@
                 <div id="mainDashboard" class="content-page active">
                     <div class="page-header">
                         <h2>Ringkasan Kinerja Tim</h2>
-                        <!-- [MODIFIED] Tombol diubah untuk ekspor Excel -->
-                        <button id="exportExcelBtn" class="btn btn--secondary">Download Laporan Excel</button>
+                        <!-- [MODIFIED] Tombol import dan export dibungkus div -->
+                        <div class="header-page-actions">
+                            <button id="importDataBtn" class="btn btn--secondary">Import Data</button>
+                            <button id="exportExcelBtn" class="btn btn--secondary">Download Laporan Excel</button>
+                        </div>
                     </div>
                     <div class="stats-grid">
                         <div class="stat-card"><h3>Total Leads (Approved)</h3><p class="value" id="totalLeads">0</p></div>
@@ -262,6 +277,34 @@
             <div id="managementDetailModalBody"></div>
         </div>
     </div>
+
+    <!-- [NEW] Modal untuk Import Data -->
+    <div id="importModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="importModalTitle">Import Data dari JSON</h3>
+                <button class="close-button" onclick="closeImportModal()">&times;</button>
+            </div>
+            <form id="importForm">
+                <div class="form-group">
+                    <label for="jsonFileInput" class="form-label">Pilih File JSON</label>
+                    <input type="file" id="jsonFileInput" class="form-control" accept=".json" required>
+                    <small>Pastikan file JSON berisi array dari objek data.</small>
+                </div>
+                <div class="form-group">
+                    <label for="importCollectionSelect" class="form-label">Pilih Koleksi Tujuan</label>
+                    <select id="importCollectionSelect" class="form-control" required>
+                        <option value="">-- Pilih Koleksi --</option>
+                    </select>
+                </div>
+                <div id="importPreview" style="margin-top: 16px; display: none;"></div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
+                    <button type="button" class="btn btn--secondary" onclick="closeImportModal()">Batal</button>
+                    <button type="submit" class="btn btn--primary" disabled>Import Data</button>
+                </div>
+            </form>
+        </div>
+    </div>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -284,7 +327,6 @@
       const storage = firebase.storage();
     </script>
     
-    <!-- [ADDED] Library SheetJS untuk membuat file Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <script src="utils.js"></script>
