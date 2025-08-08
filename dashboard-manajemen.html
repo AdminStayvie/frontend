@@ -90,17 +90,15 @@
         .card.is-collapsed .collapse-btn svg {
             transform: rotate(-90deg);
         }
-        /* [NEW] Gaya untuk tombol import */
         .header-page-actions {
             display: flex;
             gap: var(--space-12);
             align-items: center;
         }
-        #importForm small {
-            display: block;
-            margin-top: var(--space-4);
-            font-size: var(--font-size-sm);
-            color: var(--color-text-secondary);
+        #exportJsonOptions {
+            margin-top: var(--space-16);
+            padding-top: var(--space-16);
+            border-top: 1px solid var(--color-border);
         }
     </style>
 </head>
@@ -138,10 +136,8 @@
                 <div id="mainDashboard" class="content-page active">
                     <div class="page-header">
                         <h2>Ringkasan Kinerja Tim</h2>
-                        <!-- [MODIFIED] Tombol import dan export dibungkus div -->
                         <div class="header-page-actions">
-                            <button id="importDataBtn" class="btn btn--secondary">Import Data</button>
-                            <button id="exportExcelBtn" class="btn btn--secondary">Download Laporan Excel</button>
+                            <button id="exportDataBtn" class="btn btn--secondary">Export</button>
                         </div>
                     </div>
                     <div class="stats-grid">
@@ -278,54 +274,36 @@
         </div>
     </div>
 
-    <!-- [NEW] Modal untuk Import Data -->
-    <div id="importModal" class="modal-overlay">
+    <!-- [MODIFIED] Modal untuk Export Data -->
+    <div id="exportModal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="importModalTitle">Import Data dari JSON</h3>
-                <button class="close-button" onclick="closeImportModal()">&times;</button>
+                <h3 id="exportModalTitle">Export Data</h3>
+                <button class="close-button" onclick="closeExportModal()">&times;</button>
             </div>
-            <form id="importForm">
+            <form id="exportForm">
                 <div class="form-group">
-                    <label for="jsonFileInput" class="form-label">Pilih File JSON</label>
-                    <input type="file" id="jsonFileInput" class="form-control" accept=".json" required>
-                    <small>Pastikan file JSON berisi array dari objek data.</small>
+                    <label class="form-label">Pilih Format Export</label>
+                    <div style="display: flex; gap: 16px;">
+                        <label style="display: flex; align-items: center; gap: 8px;"><input type="radio" name="exportFormat" value="excel" checked> Excel</label>
+                        <label style="display: flex; align-items: center; gap: 8px;"><input type="radio" name="exportFormat" value="json"> JSON</label>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="importCollectionSelect" class="form-label">Pilih Koleksi Tujuan</label>
-                    <select id="importCollectionSelect" class="form-control" required>
-                        <option value="">-- Pilih Koleksi --</option>
-                    </select>
+                <div id="exportJsonOptions" style="display: none;">
+                    <div class="form-group">
+                        <label for="exportCollectionSelect" class="form-label">Pilih Koleksi</label>
+                        <select id="exportCollectionSelect" class="form-control">
+                            <option value="all">Semua Koleksi</option>
+                        </select>
+                    </div>
                 </div>
-                <div id="importPreview" style="margin-top: 16px; display: none;"></div>
                 <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;">
-                    <button type="button" class="btn btn--secondary" onclick="closeImportModal()">Batal</button>
-                    <button type="submit" class="btn btn--primary" disabled>Import Data</button>
+                    <button type="button" class="btn btn--secondary" onclick="closeExportModal()">Batal</button>
+                    <button type="submit" class="btn btn--primary">Lanjutkan</button>
                 </div>
             </form>
         </div>
     </div>
-    
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
-    <script>
-      const firebaseConfig = {
-        apiKey: "AIzaSyAqU-GvPlgJJgFZiV1u_01HyVUOgCLiD_c",
-        authDomain: "admin-stayvie.firebaseapp.com",
-        projectId: "admin-stayvie",
-        storageBucket: "admin-stayvie.firebasestorage.app",
-        messagingSenderId: "263821398757",
-        appId: "1:263821398757:web:d43aef8e2f825d3c3dba0c"
-      };
-      if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-      }
-      const db = firebase.firestore();
-      const auth = firebase.auth();
-      const storage = firebase.storage();
-    </script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
