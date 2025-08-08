@@ -1546,3 +1546,52 @@ input:checked + .toggle-slider:before {
 #leadTabContentContainer .tab-content .table-controls {
     border-radius: 0;
 }
+
+/* [NEW] Gaya untuk Sidebar Data Ditolak */
+.rejected-sidebar-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    padding: 0 var(--space-12);
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.rejected-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-8);
+    background-color: var(--color-secondary);
+    border-radius: var(--radius-base);
+    border-left: 3px solid var(--color-error);
+}
+
+.rejected-item__info {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    margin-right: var(--space-8);
+}
+
+.rejected-item__title {
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+}
+
+.rejected-item__type {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.empty-state-sidebar {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    padding: var(--space-8);
+    text-align: center;
+}
