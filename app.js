@@ -1,7 +1,7 @@
 /**
  * @file app.js
  * @description Logika utama untuk dashboard KPI Sales, diadaptasi untuk backend MongoDB.
- * @version 14.0.0 - Versi lengkap dengan semua fungsi UI dan logika CRUD.
+ * @version 15.0.0 - Menambahkan fitur pengurutan tabel default dan interaktif.
  */
 
 // --- INISIALISASI PENGGUNA & PENJAGA HALAMAN ---
@@ -109,6 +109,77 @@ const FORM_PAGE_MAP = {
 
 let currentData = {};
 let performanceReportWeekOffset = 0;
+// [MODIFIED] State untuk pengurutan tabel
+let tableSortState = {};
+
+// =================================================================================
+// [NEW] FUNGSI PENGURUTAN TABEL
+// =================================================================================
+
+/**
+ * Menginisialisasi status pengurutan default untuk semua tabel.
+ */
+function initializeTableSortState() {
+    tableSortState = {};
+    const allDataKeys = [...Object.keys(CONFIG.dataMapping), 'Deals']; // Tambahkan 'Deals' untuk tab gabungan
+    allDataKeys.forEach(key => {
+        // Default: urutkan dari terbaru ke terlama berdasarkan timestamp
+        tableSortState[key] = {
+            by: 'timestamp',
+            dir: 'desc'
+        };
+    });
+}
+
+/**
+ * Mengurutkan array data berdasarkan konfigurasi.
+ * @param {Array} data - Array data yang akan diurutkan.
+ * @param {object} sortConfig - Konfigurasi pengurutan { by: 'key', dir: 'asc'|'desc' }.
+ * @returns {Array} Array yang sudah diurutkan.
+ */
+function sortData(data, sortConfig) {
+    if (!sortConfig || !sortConfig.by || !Array.isArray(data)) return data;
+
+    const isDateSort = ['timestamp', 'datestamp', 'visitDate', 'surveyDate', 'eventDate'].includes(sortConfig.by);
+
+    data.sort((a, b) => {
+        if (!a || !b) return 0;
+        let valA, valB;
+
+        if (isDateSort) {
+            valA = new Date(a[sortConfig.by] || a.timestamp || 0);
+            valB = new Date(b[sortConfig.by] || b.timestamp || 0);
+            if (isNaN(valA) || isNaN(valB)) return 0;
+        } else {
+            valA = String(a[sortConfig.by] || '').toLowerCase();
+            valB = String(b[sortConfig.by] || '').toLowerCase();
+        }
+
+        if (valA < valB) return sortConfig.dir === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.dir === 'asc' ? 1 : -1;
+        return 0;
+    });
+    return data;
+}
+
+/**
+ * Membuat HTML untuk kontrol tabel (tombol urut/filter).
+ * @param {string} dataKey - Kunci untuk tabel data (misal, 'Leads', 'Canvasing').
+ * @returns {string} String HTML untuk kontrol.
+ */
+function generateTableControls(dataKey) {
+    const sortConfig = tableSortState[dataKey] || { by: 'timestamp', dir: 'desc' };
+    const arrow = sortConfig.dir === 'desc' ? '▼' : '▲';
+    const isActive = sortConfig.by === 'timestamp' ? 'active' : '';
+
+    return `
+        <div class="table-controls" data-table-id="${dataKey}">
+            <button class="btn btn--sm btn--outline sort-btn ${isActive} ${sortConfig.dir}" data-sort-by="timestamp">
+                Urutkan Tanggal <span class="arrow">${isActive ? arrow : ''}</span>
+            </button>
+        </div>
+    `;
+}
 
 // =================================================================================
 // FUNGSI PENGAMBILAN & PENGIRIMAN DATA
@@ -716,72 +787,65 @@ function renderPerformanceReport() {
     document.getElementById('weekRangeLabel').textContent = startRange && endRange ? `${startRange} - ${endRange}` : '...';
 }
 
-function updateAllSummaries() {
-    updateLeadTabs();
-    Object.keys(CONFIG.dataMapping).forEach(dataKey => {
-        const mapping = CONFIG.dataMapping[dataKey];
-        const containerId = `${dataKey.toLowerCase()}Summary`;
-        const container = document.getElementById(containerId);
-        if (container) {
-            updateSimpleSummaryTable(dataKey, mapping, container);
-        }
-    });
-}
+/**
+ * [REFACTORED] Merender tabel data dengan kontrol ke dalam sebuah kontainer.
+ * @param {HTMLElement} container - Elemen DOM untuk dirender.
+ * @param {Array} data - Array objek data.
+ * @param {string} dataKey - Kunci untuk tipe data ini (untuk status pengurutan).
+ * @param {object} mapping - Objek konfigurasi untuk header dan generator baris.
+ */
+function renderTable(container, data, dataKey, mapping) {
+    if (!container) return;
 
-function updateSimpleSummaryTable(dataKey, mapping, container) {
-    const dataToDisplay = (currentData[dataKey] || []).filter(item => item);
-    if (dataToDisplay.length === 0) {
+    if (!data || data.length === 0) {
         container.innerHTML = `<div class="empty-state">Belum ada data untuk periode ini</div>`;
         return;
     }
+
+    sortData(data, tableSortState[dataKey]);
+
+    const controlsHTML = generateTableControls(dataKey);
     const rowGenerator = window[mapping.rowGenerator];
-    const tableHTML = `<table><thead><tr><th>${mapping.headers.join('</th><th>')}</th></tr></thead><tbody>${dataToDisplay.slice().reverse().map(item => item ? rowGenerator(item, dataKey) : '').join('')}</tbody></table>`;
-    container.innerHTML = tableHTML;
+    const tableHTML = `
+        <table>
+            <thead><tr><th>${mapping.headers.join('</th><th>')}</th></tr></thead>
+            <tbody>${data.map(item => item ? rowGenerator(item, item.originalDataKey || dataKey) : '').join('')}</tbody>
+        </table>`;
+    
+    container.innerHTML = controlsHTML + tableHTML;
 }
 
-function updateLeadTabs() {
-    const leadContainer = document.getElementById('leadContent');
-    const prospectContainer = document.getElementById('prospectContent');
-    const dealContainer = document.getElementById('dealContent');
-    if (!leadContainer || !prospectContainer || !dealContainer) return;
-    const allLeads = currentData.Leads || [];
-    const allProspects = currentData.Prospects || [];
-    const leads = allLeads.filter(item => item && (item.status === 'Lead' || item.validationStatus === 'Rejected'));
-    const prospects = allProspects.filter(item => item && item.validationStatus !== 'Rejected' && !(item.statusLog && item.statusLog.includes('Status otomatis diubah')));
-    renderLeadTable(leadContainer, leads, 'Leads');
-    renderLeadTable(prospectContainer, prospects, 'Prospects');
+/**
+ * [REFACTORED] Memperbarui semua tabel ringkasan di halaman.
+ */
+function updateAllSummaries() {
+    // Menangani tab Lead/Prospect/Deal
+    const leadData = (currentData.Leads || []).filter(item => item && (item.status === 'Lead' || item.validationStatus === 'Rejected'));
+    renderTable(document.getElementById('leadContent'), leadData, 'Leads', CONFIG.dataMapping['Leads']);
+
+    const prospectData = (currentData.Prospects || []).filter(item => item && item.validationStatus !== 'Rejected' && !(item.statusLog && item.statusLog.includes('Status otomatis diubah')));
+    renderTable(document.getElementById('prospectContent'), prospectData, 'Prospects', CONFIG.dataMapping['Prospects']);
+
     const allDeals = [
         ...(currentData.B2BBookings || []).map(d => ({...d, originalDataKey: 'B2BBookings'})),
         ...(currentData.VenueBookings || []).map(d => ({...d, originalDataKey: 'VenueBookings'})),
         ...(currentData.DealLainnya || []).map(d => ({...d, originalDataKey: 'DealLainnya'}))
     ];
-    if (allDeals.length === 0) {
-        dealContainer.innerHTML = `<div class="empty-state">Belum ada data Deal untuk periode ini</div>`;
-        return;
-    }
-    allDeals.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    const mapping = CONFIG.dataMapping['Leads'];
-    const headers = mapping.headers;
-    const tableHTML = `<table><thead><tr><th>${headers.join('</th><th>')}</th></tr></thead><tbody>
-        ${allDeals.map(item => item ? generateDealRow(item, item.originalDataKey) : '').join('')}
-    </tbody></table>`;
-    dealContainer.innerHTML = tableHTML;
-}
+    const dealMapping = {
+        ...CONFIG.dataMapping['Leads'],
+        rowGenerator: 'generateDealRow'
+    };
+    renderTable(document.getElementById('dealContent'), allDeals, 'Deals', dealMapping);
 
-function renderLeadTable(container, data, dataKey) {
-    if (!data || data.length === 0) {
-        container.innerHTML = `<div class="empty-state">Belum ada data ${dataKey} untuk periode ini</div>`;
-        return;
-    }
-    const mapping = CONFIG.dataMapping[dataKey];
-    if (!mapping) {
-        container.innerHTML = `<div class="empty-state">Konfigurasi tabel tidak ditemukan.</div>`;
-        return;
-    }
-    const headers = mapping.headers;
-    const rowGenerator = window[mapping.rowGenerator];
-    const tableHTML = `<table><thead><tr><th>${headers.join('</th><th>')}</th></tr></thead><tbody>${data.slice().reverse().map(item => item ? rowGenerator(item, dataKey) : '').join('')}</tbody></table>`;
-    container.innerHTML = tableHTML;
+    // Menangani semua tabel ringkasan sederhana lainnya
+    Object.keys(CONFIG.dataMapping).forEach(dataKey => {
+        if (['Leads', 'Prospects', 'B2BBookings', 'VenueBookings', 'DealLainnya'].includes(dataKey)) return;
+        
+        const mapping = CONFIG.dataMapping[dataKey];
+        const container = document.getElementById(`${dataKey.toLowerCase()}Summary`);
+        const data = currentData[dataKey] || [];
+        renderTable(container, data, dataKey, mapping);
+    });
 }
 
 function generateSimpleRow(item, dataKey) {
@@ -1073,6 +1137,33 @@ function setupEventListeners() {
             renderPerformanceReport();
         }
     });
+
+    // [NEW] Listener untuk kontrol tabel
+    document.querySelector('.main-content').addEventListener('click', (e) => {
+        const sortButton = e.target.closest('.sort-btn');
+        if (sortButton) {
+            e.stopPropagation();
+            const controlsDiv = sortButton.closest('.table-controls');
+            if (!controlsDiv) return;
+
+            const tableId = controlsDiv.dataset.tableId;
+            const sortBy = sortButton.dataset.sortBy;
+
+            if (!tableSortState[tableId]) return;
+
+            const currentSort = tableSortState[tableId];
+            let newDir = 'desc';
+            
+            if (currentSort.by === sortBy) {
+                newDir = currentSort.dir === 'desc' ? 'asc' : 'desc';
+            }
+            
+            tableSortState[tableId].by = sortBy;
+            tableSortState[tableId].dir = newDir;
+            
+            updateAllSummaries();
+        }
+    });
 }
 
 function initializeApp() {
@@ -1081,12 +1172,13 @@ function initializeApp() {
     document.getElementById('userDisplayName').textContent = currentUser.name;
     updateDateTime();
     setInterval(updateDateTime, 60000);
+    initializeTableSortState(); // [NEW] Panggil inisialisasi status urutan
     setupEventListeners();
     setupFilters(() => {
         performanceReportWeekOffset = 0;
         loadInitialData();
     });
-    loadInitialData(); // Panggilan awal
+    loadInitialData();
 }
 
 // Mulai aplikasi
