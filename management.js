@@ -1,7 +1,7 @@
 /**
  * @file management.js
  * @description Logika lengkap untuk dashboard manajemen, diadaptasi untuk backend MongoDB.
- * @version 17.0.0 - Menambahkan fitur import data dari JSON.
+ * @version 18.0.0 - Menghapus fitur import, menyesuaikan fitur export, dan menghapus kode Firebase.
  */
 
 // --- INISIALISASI PENGGUNA & KONSTANTA ---
@@ -11,7 +11,6 @@ let allData = {};
 let allSalesUsers = [];
 let pendingEntries = {};
 let managementReportWeekOffset = 0;
-let parsedJsonData = null; // [NEW] Variabel untuk menyimpan data JSON yang akan diimpor
 
 // Fungsi fetch dengan otentikasi
 async function fetchWithAuth(url, options = {}) {
@@ -67,7 +66,7 @@ const CONFIG = {
         'Prospects': { dataKey: 'Prospects', collectionName: 'Prospects', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
         'B2BBookings': { dataKey: 'B2BBookings', collectionName: 'B2BBookings', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', proofOfDeal: 'Bukti Deal', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
         'VenueBookings': { dataKey: 'VenueBookings', collectionName: 'VenueBookings', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', proofOfDeal: 'Bukti Deal', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
-        'DealLainnya': { dataKey: 'DealLainnya', collectionName: 'Deal Lainnya', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', proofOfDeal: 'Bukti Deal', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
+        'DealLainnya': { dataKey: 'DealLainnya', collectionName: 'DealLainnya', detailLabels: { timestamp: 'Waktu Input', sales: 'Sales', customerName: 'Nama Customer', leadSource: 'Sumber Lead', product: 'Produk', contact: 'Kontak', proofOfLead: 'Bukti Lead', notes: 'Catatan Awal', status: 'Status Lead', proofOfDeal: 'Bukti Deal', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi', statusLog: 'Log Status' } },
         'Canvasing': { dataKey: 'Canvasing', collectionName: 'Canvasing', detailLabels: { datestamp: 'Waktu Upload', sales: 'Sales', meetingTitle: 'Judul Meeting', document: 'File', notes: 'Catatan', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
         'Promosi': { dataKey: 'Promosi', collectionName: 'Promosi', detailLabels: { datestamp: 'Waktu Upload', sales: 'Sales', campaignName: 'Nama Campaign', platform: 'Platform', screenshot: 'Screenshot', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' }},
         'DoorToDoor': { dataKey: 'DoorToDoor', collectionName: 'DoorToDoor', detailLabels: { datestamp: 'Waktu Input', sales: 'Sales', visitDate: 'Tanggal Kunjungan', institutionName: 'Nama Instansi', address: 'Alamat', picName: 'Nama PIC', picPhone: 'Kontak PIC', response: 'Hasil Kunjungan', proof: 'Bukti', validationStatus: 'Status Validasi', validationNotes: 'Catatan Validasi' } },
@@ -230,47 +229,59 @@ async function handleValidation(buttonElement, sheetName, id, type) {
 }
 
 // =================================================================================
-// FUNGSI EKSPOR & IMPORT DATA
+// FUNGSI EKSPOR DATA
 // =================================================================================
 
-function exportAllDataAsExcel() {
-    const exportBtn = document.getElementById('exportExcelBtn');
-    if (!exportBtn) return;
-    
-    showMessage('Mempersiapkan file Excel...', 'info');
-    exportBtn.disabled = true;
-    exportBtn.textContent = 'Memproses...';
+function openExportModal() {
+    const modal = document.getElementById('exportModal');
+    if (!modal) return;
 
+    const select = document.getElementById('exportCollectionSelect');
+    select.innerHTML = '<option value="all">Semua Koleksi</option>';
+    Object.keys(CONFIG.dataMapping).forEach(dataKey => {
+        const collectionName = CONFIG.dataMapping[dataKey].collectionName || dataKey;
+        const option = document.createElement('option');
+        option.value = dataKey; // Gunakan dataKey untuk referensi internal
+        option.textContent = collectionName;
+        select.appendChild(option);
+    });
+    
+    document.getElementById('exportForm').reset();
+    document.getElementById('exportJsonOptions').style.display = 'none';
+    modal.classList.add('active');
+}
+
+function closeExportModal() {
+    const modal = document.getElementById('exportModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+function handleExportFormSubmit(e) {
+    e.preventDefault();
+    const format = document.querySelector('input[name="exportFormat"]:checked').value;
+    
+    if (format === 'excel') {
+        exportAllDataAsExcel();
+    } else if (format === 'json') {
+        const collectionKey = document.getElementById('exportCollectionSelect').value;
+        exportDataAsJson(collectionKey);
+    }
+    closeExportModal();
+}
+
+function exportAllDataAsExcel() {
+    showMessage('Mempersiapkan file Excel...', 'info');
     try {
         const wb = XLSX.utils.book_new();
         const sheetOrder = Object.keys(CONFIG.dataMapping);
 
-        sheetOrder.forEach(collectionName => {
-            const mapping = CONFIG.dataMapping[collectionName];
-            const dataKey = mapping.dataKey;
+        sheetOrder.forEach(dataKey => {
             const data = allData[dataKey];
-
             if (data && data.length > 0) {
-                const headers = Object.values(mapping.detailLabels);
-                const headerKeys = Object.keys(mapping.detailLabels);
-
-                const sheetData = data.map(row => {
-                    const newRow = {};
-                    headerKeys.forEach(key => {
-                        const headerName = mapping.detailLabels[key];
-                        let value = row[key];
-                        if (key === 'timestamp' && value) {
-                            value = new Date(value).toLocaleString('id-ID');
-                        } else if ((key.toLowerCase().includes('amount') || key.toLowerCase().includes('budget') || key.toLowerCase().includes('value')) && typeof value === 'number') {
-                            value = formatCurrency(value);
-                        }
-                        newRow[headerName] = value !== undefined && value !== null ? value : '';
-                    });
-                    return newRow;
-                });
-                
-                const ws = XLSX.utils.json_to_sheet(sheetData, { header: headers });
-                XLSX.utils.book_append_sheet(wb, ws, collectionName);
+                const ws = XLSX.utils.json_to_sheet(data);
+                XLSX.utils.book_append_sheet(wb, ws, dataKey);
             }
         });
 
@@ -289,118 +300,40 @@ function exportAllDataAsExcel() {
     } catch (error) {
         showMessage(`Gagal mengekspor data ke Excel: ${error.message}`, 'error');
         console.error("Excel Export Error:", error);
-    } finally {
-        exportBtn.disabled = false;
-        exportBtn.textContent = 'Download Laporan Excel';
     }
 }
 
-// [NEW] Fungsi untuk membuka modal import
-function openImportModal() {
-    const modal = document.getElementById('importModal');
-    if (!modal) return;
+function exportDataAsJson(collectionKey) {
+    let dataToExport;
+    let fileName;
+    const period = document.getElementById('periodFilter').options[document.getElementById('periodFilter').selectedIndex].text.replace(/\s/g, '');
+    const year = document.getElementById('yearFilter').value;
 
-    const select = document.getElementById('importCollectionSelect');
-    select.innerHTML = '<option value="">-- Pilih Koleksi --</option>';
-
-    Object.keys(CONFIG.dataMapping).forEach(dataKey => {
-        const collectionName = CONFIG.dataMapping[dataKey].collectionName || dataKey;
-        const option = document.createElement('option');
-        option.value = collectionName;
-        option.textContent = collectionName;
-        select.appendChild(option);
-    });
-    
-    document.getElementById('importForm').reset();
-    document.getElementById('importPreview').style.display = 'none';
-    document.getElementById('importForm').querySelector('button[type="submit"]').disabled = true;
-    parsedJsonData = null;
-    modal.classList.add('active');
-}
-
-// [NEW] Fungsi untuk menutup modal import
-function closeImportModal() {
-    const modal = document.getElementById('importModal');
-    if (modal) {
-        modal.classList.remove('active');
-    }
-}
-
-// [NEW] Handler saat file JSON dipilih
-async function handleJsonFileSelect(event) {
-    const file = event.target.files[0];
-    const previewDiv = document.getElementById('importPreview');
-    const submitButton = document.getElementById('importForm').querySelector('button[type="submit"]');
-    
-    parsedJsonData = null;
-    previewDiv.style.display = 'none';
-    previewDiv.textContent = '';
-    submitButton.disabled = true;
-
-    if (!file) return;
-
-    try {
-        const fileContent = await file.text();
-        const data = JSON.parse(fileContent);
-
-        if (!Array.isArray(data)) {
-            throw new Error('File JSON harus berisi sebuah array (kumpulan data).');
-        }
-        
-        parsedJsonData = data;
-        previewDiv.innerHTML = `<p class="message info">File <strong>${file.name}</strong> berisi <strong>${data.length}</strong> data. Siap untuk diimpor.</p>`;
-        previewDiv.style.display = 'block';
-        submitButton.disabled = false;
-
-    } catch (error) {
-        previewDiv.innerHTML = `<p class="message error">Gagal membaca file: ${error.message}</p>`;
-        previewDiv.style.display = 'block';
-    }
-}
-
-// [NEW] Handler untuk submit form import
-async function handleImportFormSubmit(e) {
-    e.preventDefault();
-    const collectionSelect = document.getElementById('importCollectionSelect');
-    const collectionName = collectionSelect.value;
-    const button = e.target.querySelector('button[type="submit"]');
-
-    if (!parsedJsonData || parsedJsonData.length === 0) {
-        showMessage('Tidak ada data valid untuk diimpor.', 'error');
+    if (collectionKey === 'all') {
+        dataToExport = allData;
+        fileName = `KPI_ALL_${year}_${period}.json`;
+    } else if (allData[collectionKey]) {
+        dataToExport = allData[collectionKey];
+        fileName = `KPI_${collectionKey}_${year}_${period}.json`;
+    } else {
+        showMessage('Koleksi tidak valid atau tidak ada data.', 'error');
         return;
     }
 
-    if (!collectionName) {
-        showMessage('Silakan pilih koleksi tujuan.', 'error');
-        return;
-    }
+    const dataStr = JSON.stringify(dataToExport, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
     
-    button.disabled = true;
-    button.textContent = 'Mengimpor...';
-
-    try {
-        showMessage(`Mengimpor ${parsedJsonData.length} data ke ${collectionName}...`, 'info');
-
-        await fetchWithAuth(`${API_BASE_URL}/data/import`, {
-            method: 'POST',
-            body: JSON.stringify({
-                collection: collectionName,
-                data: parsedJsonData
-            })
-        });
-
-        showMessage('Data berhasil diimpor!', 'success');
-        closeImportModal();
-        loadInitialData(false);
-
-    } catch (error) {
-        showMessage(`Gagal mengimpor: ${error.message}`, 'error');
-        console.error("Import Error:", error);
-    } finally {
-        button.disabled = false;
-        button.textContent = 'Import Data';
-    }
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showMessage('Unduhan JSON berhasil disiapkan!', 'success');
 }
+
 
 // =================================================================================
 // PENGATURAN
@@ -1026,7 +959,13 @@ function initializeApp() {
     // Setup Event Listeners
     document.getElementById('logoutBtn')?.addEventListener('click', logout);
     document.getElementById('refreshValidationBtn')?.addEventListener('click', loadPendingEntries);
-    document.getElementById('exportExcelBtn')?.addEventListener('click', exportAllDataAsExcel);
+    document.getElementById('exportDataBtn')?.addEventListener('click', openExportModal);
+    document.getElementById('exportForm')?.addEventListener('submit', handleExportFormSubmit);
+    document.querySelectorAll('input[name="exportFormat"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            document.getElementById('exportJsonOptions').style.display = e.target.value === 'json' ? 'block' : 'none';
+        });
+    });
     document.getElementById('cutoffForm')?.addEventListener('submit', handleSaveCutoffSettings);
     document.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', (e) => {
@@ -1058,11 +997,6 @@ function initializeApp() {
         }
     });
     
-    // [NEW] Event listeners untuk fitur import
-    document.getElementById('importDataBtn')?.addEventListener('click', openImportModal);
-    document.getElementById('jsonFileInput')?.addEventListener('change', handleJsonFileSelect);
-    document.getElementById('importForm')?.addEventListener('submit', handleImportFormSubmit);
-
     // Panggilan data awal
     loadInitialData(true);
 }
