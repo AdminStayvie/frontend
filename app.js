@@ -1,7 +1,7 @@
 /**
  * @file app.js
  * @description Logika utama untuk dashboard KPI Sales, diadaptasi untuk backend MongoDB.
- * @version 17.1.0 - Memperbaiki URL endpoint pada handleFormSubmit.
+ * @version 16.0.0 - Menambahkan sidebar untuk data yang ditolak.
  */
 
 // --- INISIALISASI PENGGUNA & PENJAGA HALAMAN ---
@@ -12,13 +12,9 @@ let currentUser;
 async function fetchWithAuth(url, options = {}) {
     const token = localStorage.getItem('token');
     const headers = {
-        // Hapus 'Content-Type' default agar bisa di-set otomatis untuk FormData
+        'Content-Type': 'application/json',
         ...options.headers,
     };
-
-    if (!options.body instanceof FormData) {
-        headers['Content-Type'] = 'application/json';
-    }
 
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -32,22 +28,17 @@ async function fetchWithAuth(url, options = {}) {
         throw new Error('Sesi Anda telah berakhir. Silakan login kembali.');
     }
     
-    // [FIX] Cek jika response bukan JSON sebelum mencoba parsing
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Terjadi kesalahan pada server.');
+    }
+
+    // Cek jika response punya body sebelum parsing JSON
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.indexOf("application/json") !== -1) {
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Terjadi kesalahan pada server.');
-        }
         return response.json();
     } else {
-        // Jika bukan JSON, berarti ada error server (seperti 404)
-        // yang mengembalikan halaman HTML.
-        if (!response.ok) {
-             throw new Error(`Server error: ${response.status} ${response.statusText}. URL mungkin salah.`);
-        }
-        // Jika response OK tapi bukan JSON, kembalikan null atau text jika perlu.
-        return null; 
+        return; // Tidak ada body atau bukan JSON
     }
 }
 
@@ -178,32 +169,32 @@ function generateTableControls(dataKey) {
 // FUNGSI PENGAMBILAN & PENGIRIMAN DATA
 // =================================================================================
 
-async function uploadFile(file, collectionName) {
+async function uploadFile(file) {
     if (!file) return null;
-    if (!collectionName) {
-        throw new Error("Nama koleksi dibutuhkan untuk upload file.");
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-        const result = await fetchWithAuth(`${API_BASE_URL}/upload/${collectionName}`, {
-            method: 'POST',
-            body: formData,
-        });
-
-        if (result && result.status === "success" && result.url) {
-            return result.url;
-        } else {
-            throw new Error(result ? result.message : 'Gagal mengunggah file ke server.');
-        }
-    } catch (error) {
-        console.error('Upload error:', error);
-        throw error;
-    }
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz0o1xUtRSksLhlZCgDYCyJt-FS1bM2rKzIIuKLPDV0IRbo_NWlR1PI1s0P04ESO_VyBw/exec";
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ fileName: file.name, mimeType: file.type, fileData: e.target.result }),
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                });
+                const result = await response.json();
+                if (result.status === "success" && result.url) {
+                    resolve(result.url);
+                } else {
+                    throw new Error(result.message || 'Gagal mengunggah file.');
+                }
+            } catch (error) {
+                reject(error);
+            }
+        };
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+    });
 }
-
 
 async function loadInitialData() {
     showMessage("Memuat data dari server...", "info");
@@ -282,7 +273,7 @@ async function handleFormSubmit(e) {
         
         for (const [key, value] of formData.entries()) {
             if (value instanceof File && value.size > 0) {
-                const downloadURL = await uploadFile(value, collectionName);
+                const downloadURL = await uploadFile(value);
                 data[key] = downloadURL;
             }
         }
@@ -298,7 +289,6 @@ async function handleFormSubmit(e) {
             data.statusLog = `${getDatestamp()}: Dibuat sebagai Lead.`;
         }
         
-        // [FIX] URL endpoint untuk menyimpan data harus benar
         await fetchWithAuth(`${API_BASE_URL}/data/${collectionName}`, {
             method: 'POST',
             body: JSON.stringify(data)
@@ -380,7 +370,7 @@ async function handleUpdateLead(e) {
             
             const proofInput = form.querySelector('#modalProofOfDeal');
             if (proofInput && proofInput.files.length > 0) {
-                newData.proofOfDeal = await uploadFile(proofInput.files[0], dealCollectionName);
+                newData.proofOfDeal = await uploadFile(proofInput.files[0]);
             } else if (!leadData.proofOfDeal) {
                 throw new Error('Bukti deal wajib diunggah saat mengubah status menjadi "Deal".');
             }
@@ -435,7 +425,7 @@ async function handleEditFormSubmit(e) {
         for (const [key, value] of formData.entries()) {
             if (value instanceof File && value.size > 0) {
                 fileInputPromises.push(
-                    uploadFile(value, collectionName).then(downloadURL => {
+                    uploadFile(value).then(downloadURL => {
                         dataToUpdate[key] = downloadURL;
                     })
                 );
@@ -521,13 +511,14 @@ function updateAllUI() {
         updateValidationBreakdown();
         renderPerformanceReport();
         updateSidebarMenuState();
-        updateRejectedDataSidebar();
+        updateRejectedDataSidebar(); // [NEW] Panggil fungsi untuk update sidebar
     } catch (error) {
         console.error("Error updating UI:", error);
         showMessage("Terjadi kesalahan saat menampilkan data.", "error");
     }
 }
 
+// [NEW] Fungsi untuk menampilkan data yang ditolak di sidebar
 function updateRejectedDataSidebar() {
     const container = document.getElementById('rejectedDataSidebar');
     const badge = document.getElementById('rejectedCountBadge');
@@ -1100,8 +1091,8 @@ function openDetailModal(itemId, dataKey) {
             else if (key === 'validationStatus') {
                 dd.innerHTML = `<span class="status status--${(value || 'pending').toLowerCase()}">${value || 'Pending'}</span>`;
                 detailList.appendChild(dt); detailList.appendChild(dd); continue;
-            } else if (typeof value === 'string' && (value.startsWith('http') || value.startsWith('/uploads/'))) {
-                 dd.innerHTML = `<a href="${API_BASE_URL.replace('/api', '')}${value}" target="_blank" rel="noopener noreferrer">Lihat File/Link</a>`;
+            } else if (typeof value === 'string' && (value.startsWith('http'))) {
+                 dd.innerHTML = `<a href="${value}" target="_blank" rel="noopener noreferrer">Lihat File/Link</a>`;
                 detailList.appendChild(dt); detailList.appendChild(dd); continue;
             }
             dd.textContent = value;
