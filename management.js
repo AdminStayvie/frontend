@@ -799,6 +799,7 @@ function renderValidationTabs(data) {
                         <tbody>`;
             items.forEach(item => {
                 const mainDetail = item.customerName || item.meetingTitle || item.campaignName || item.institutionName || item.competitorName || item.eventName || item.campaignTitle || 'N/A';
+                // [MODIFIKASI] Tambahkan tombol hapus di pusat validasi
                 tableHTML += `
                     <tr data-id="${item._id}" data-sheet="${sheetName}">
                         <td>${item.datestamp || new Date(item.timestamp).toLocaleString('id-ID')}</td>
@@ -807,6 +808,7 @@ function renderValidationTabs(data) {
                             <button class="btn btn--sm btn--outline" onclick="openDetailModal('${item._id}', '${sheetName}')">Detail</button>
                             <button class="btn btn--sm btn--primary" onclick="handleValidation(this, '${sheetName}', '${item._id}', 'approve')">Approve</button>
                             <button class="btn btn--sm btn--secondary" onclick="handleValidation(this, '${sheetName}', '${item._id}', 'reject')">Reject</button>
+                            <button class="btn--delete" onclick="handleDeleteEntry(this, '${sheetName}', '${item._id}')" title="Hapus Permanen">&times;</button>
                         </td>
                     </tr>`;
             });
