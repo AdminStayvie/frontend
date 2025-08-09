@@ -333,6 +333,23 @@ function getDealCollectionName(product) {
     return 'DealLainnya';
 }
 
+async function deleteKpiData(collectionName, id) {
+    if (!confirm('Apakah Anda yakin ingin menghapus data ini secara permanen? Aksi ini tidak dapat dibatalkan.')) {
+        return;
+    }
+
+    try {
+        await fetchWithAuth(`${API_BASE_URL}/data/${collectionName}/${id}`, {
+            method: 'DELETE'
+        });
+        showMessage('Data berhasil dihapus!', 'success');
+        // Panggil fungsi untuk memuat ulang data di tabel
+        loadInitialData(); 
+    } catch (error) {
+        showMessage(`Gagal menghapus data: ${error.message}`, 'error');
+    }
+}
+
 async function handleUpdateLead(e) {
     e.preventDefault();
     const form = e.target;
