@@ -117,6 +117,24 @@ const ALL_DATA_KEYS = Object.values(TARGET_CONFIG).flat().map(t => t.dataKey);
 // =================================================================================
 // FUNGSI PENGAMBILAN DATA
 // =================================================================================
+
+async function deleteKpiData(collectionName, id) {
+    if (!confirm('Apakah Anda yakin ingin menghapus data ini secara permanen? Aksi ini tidak dapat dibatalkan.')) {
+        return;
+    }
+
+    try {
+        await fetchWithAuth(`${API_BASE_URL}/data/${collectionName}/${id}`, {
+            method: 'DELETE'
+        });
+        showMessage('Data berhasil dihapus!', 'success');
+        // Panggil fungsi untuk memuat ulang data di tabel
+        loadInitialData(); 
+    } catch (error) {
+        showMessage(`Gagal menghapus data: ${error.message}`, 'error');
+    }
+}
+
 async function loadInitialData(isInitialLoad = false) {
     if (isInitialLoad) showMessage("Memuat data tim dari server...", "info");
     document.body.style.cursor = 'wait';
