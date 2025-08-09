@@ -169,24 +169,24 @@ function generateTableControls(dataKey) {
 // FUNGSI PENGAMBILAN & PENGIRIMAN DATA
 // =================================================================================
 
-async function uploadFile(file, collectionName, salesName) { // Tambahkan parameter
+async function uploadFile(file, collectionName, salesName, uploadDate) { // Tambahkan parameter uploadDate
     if (!file) return null;
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz0o1xUtRSksLhlZCgDYCyJt-FS1bM2rKzIIuKLPDV0IRbo_NWlR1PI1s0P04ESO_VyBw/exec";
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
-                // Buat payload dengan data tambahan
                 const payload = {
                     fileName: file.name,
                     mimeType: file.type,
                     fileData: e.target.result,
                     collectionName: collectionName,
-                    salesName: salesName
+                    salesName: salesName,
+                    uploadDate: uploadDate // [BARU] Tambahkan tanggal upload
                 };
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
-                    body: JSON.stringify(payload), // Kirim payload yang sudah diperbarui
+                    body: JSON.stringify(payload),
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
                 });
                 const result = await response.json();
@@ -281,7 +281,8 @@ async function handleFormSubmit(e) {
         
         for (const [key, value] of formData.entries()) {
             if (value instanceof File && value.size > 0) {
-                const downloadURL = await uploadFile(value, collectionName, currentUser.name);
+                const uploadDate = toLocalDateString(new Date()); // Ambil tanggal hari ini
+                const downloadURL = await uploadFile(value, collectionName, currentUser.name, uploadDate);
                 data[key] = downloadURL;
             }
         }
@@ -378,7 +379,8 @@ async function handleUpdateLead(e) {
             
             const proofInput = form.querySelector('#modalProofOfDeal');
             if (proofInput && proofInput.files.length > 0) {
-                newData.proofOfDeal = await uploadFile(proofInput.files[0], dealCollectionName, currentUser.name);
+                const uploadDate = toLocalDateString(new Date());
+                newData.proofOfDeal = await uploadFile(proofInput.files[0], dealCollectionName, currentUser.name, uploadDate);
             } else if (!leadData.proofOfDeal) {
                 throw new Error('Bukti deal wajib diunggah saat mengubah status menjadi "Deal".');
             }
@@ -432,10 +434,11 @@ async function handleEditFormSubmit(e) {
         const fileInputPromises = [];
         for (const [key, value] of formData.entries()) {
             if (value instanceof File && value.size > 0) {
+                const uploadDate = toLocalDateString(new Date());
                 fileInputPromises.push(
-                    uploadFile(value, collectionName, currentUser.name).then(downloadURL => {
-    dataToUpdate[key] = downloadURL;
-})
+                    uploadFile(value, collectionName, currentUser.name, uploadDate).then(downloadURL => {
+                    dataToUpdate[key] = downloadURL;
+                    })
                 );
             }
         }
