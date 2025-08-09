@@ -15,30 +15,41 @@ let managementReportWeekOffset = 0;
 // Fungsi fetch dengan otentikasi
 async function fetchWithAuth(url, options = {}) {
     const token = localStorage.getItem('token');
-    const headers = {
-        'Content-Type': 'application/json',
-        ...options.headers,
-    };
+    const headers = { ...options.headers }; // Salin header dari options
+
+    // Jangan tambahkan Content-Type jika body adalah FormData
+    if (!(options.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
 
+    // Hapus header Content-Type dari options utama agar tidak duplikat
+    if (options.headers && options.headers['Content-Type']) {
+        delete options.headers['Content-Type'];
+    }
+
     const response = await fetch(url, { ...options, headers });
 
     if (response.status === 401) {
+        // Jika token tidak valid/kadaluarsa, logout pengguna
         logout();
         throw new Error('Sesi Anda telah berakhir. Silakan login kembali.');
     }
     
     if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
         throw new Error(errorData.message || 'Terjadi kesalahan pada server.');
     }
 
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.indexOf("application/json") !== -1) {
         return response.json();
+    } else {
+        // Untuk response yang bukan JSON (misal: text), kembalikan null atau text jika perlu
+        return; 
     }
 }
 
