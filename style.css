@@ -1595,29 +1595,3 @@ input:checked + .toggle-slider:before {
     padding: var(--space-8);
     text-align: center;
 }
-
-/* [BARU] Tombol Hapus Sederhana */
-.btn--delete {
-    background: none;
-    border: none;
-    color: var(--color-error);
-    cursor: pointer;
-    padding: var(--space-4) var(--space-8);
-    font-size: 18px;
-    font-weight: bold;
-    line-height: 1;
-    border-radius: var(--radius-full);
-    transition: background-color var(--duration-fast) ease;
-    margin-left: auto; /* Mendorong tombol ke kanan */
-}
-
-.btn--delete:hover {
-    background-color: rgba(var(--color-error-rgb), 0.1);
-}
-
-/* Penyesuaian untuk sel aksi agar tombol sejajar */
-.summary-table td:last-child, .validation-actions {
-    display: flex;
-    gap: var(--space-8);
-    align-items: center;
-}
