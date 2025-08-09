@@ -11,13 +11,20 @@ let currentUser;
 // Fungsi untuk melakukan fetch dengan token otentikasi
 async function fetchWithAuth(url, options = {}) {
     const token = localStorage.getItem('token');
-    const headers = {
-        'Content-Type': 'application/json',
-        ...options.headers,
-    };
+    const headers = { ...options.headers }; // Salin header dari options
+
+    // Jangan tambahkan Content-Type jika body adalah FormData
+    if (!(options.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // Hapus header Content-Type dari options utama agar tidak duplikat
+    if (options.headers && options.headers['Content-Type']) {
+        delete options.headers['Content-Type'];
     }
 
     const response = await fetch(url, { ...options, headers });
@@ -29,16 +36,16 @@ async function fetchWithAuth(url, options = {}) {
     }
     
     if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
         throw new Error(errorData.message || 'Terjadi kesalahan pada server.');
     }
 
-    // Cek jika response punya body sebelum parsing JSON
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.indexOf("application/json") !== -1) {
         return response.json();
     } else {
-        return; // Tidak ada body atau bukan JSON
+        // Untuk response yang bukan JSON (misal: text), kembalikan null atau text jika perlu
+        return; 
     }
 }
 
@@ -165,43 +172,44 @@ function generateTableControls(dataKey) {
     `;
 }
 
-// =================================================================================
-// FUNGSI PENGAMBILAN & PENGIRIMAN DATA
-// =================================================================================
-
-async function uploadFile(file, collectionName, salesName, uploadDate) { // Tambahkan parameter uploadDate
+/**
+ * [MODIFIKASI] Mengunggah file langsung ke backend server (GridFS).
+ * @param {File} file - Objek file yang akan diunggah.
+ * @returns {Promise<string|null>} URL file yang dapat diakses setelah diunggah.
+ */
+async function uploadFile(file) { // Hapus parameter yang tidak perlu
     if (!file) return null;
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz0o1xUtRSksLhlZCgDYCyJt-FS1bM2rKzIIuKLPDV0IRbo_NWlR1PI1s0P04ESO_VyBw/exec";
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const payload = {
-                    fileName: file.name,
-                    mimeType: file.type,
-                    fileData: e.target.result,
-                    collectionName: collectionName,
-                    salesName: salesName,
-                    uploadDate: uploadDate // [BARU] Tambahkan tanggal upload
-                };
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify(payload),
-                    headers: { "Content-Type": "text/plain;charset=utf-8" },
-                });
-                const result = await response.json();
-                if (result.status === "success" && result.url) {
-                    resolve(result.url);
-                } else {
-                    throw new Error(result.message || 'Gagal mengunggah file.');
-                }
-            } catch (error) {
-                reject(error);
+
+    const formData = new FormData();
+    formData.append('file', file); // 'file' harus cocok dengan nama field di middleware multer
+
+    try {
+        // Mengirim FormData ke endpoint /api/upload baru kita
+        const response = await fetchWithAuth(`${API_BASE_URL}/upload`, {
+            method: 'POST',
+            body: formData,
+            // PENTING: Jangan set 'Content-Type' header secara manual.
+            // Browser akan otomatis mengaturnya ke 'multipart/form-data' dengan boundary yang benar.
+            headers: {
+                // Hapus 'Content-Type': 'application/json'
             }
-        };
-        reader.onerror = error => reject(error);
-        reader.readAsDataURL(file);
-    });
+        });
+        
+        // Fungsi fetchWithAuth mungkin perlu disesuaikan jika ia selalu mengirim JSON
+        // Mari kita asumsikan response adalah JSON
+        const result = await response; // fetchWithAuth sudah menangani .json()
+
+        if (result && result.fileUrl) {
+            return result.fileUrl; // Mengembalikan URL dari backend
+        } else {
+            throw new Error(result.message || 'Gagal mendapatkan URL file dari server.');
+        }
+    } catch (error) {
+        console.error('Upload file error:', error);
+        showMessage(`Gagal mengunggah file: ${error.message}`, 'error');
+        // Melempar error agar bisa ditangkap oleh handleFormSubmit
+        throw error;
+    }
 }
 
 async function loadInitialData() {
@@ -281,8 +289,7 @@ async function handleFormSubmit(e) {
         
         for (const [key, value] of formData.entries()) {
             if (value instanceof File && value.size > 0) {
-                const uploadDate = toLocalDateString(new Date()); // Ambil tanggal hari ini
-                const downloadURL = await uploadFile(value, collectionName, currentUser.name, uploadDate);
+                const downloadURL = await uploadFile(value)
                 data[key] = downloadURL;
             }
         }
@@ -379,8 +386,7 @@ async function handleUpdateLead(e) {
             
             const proofInput = form.querySelector('#modalProofOfDeal');
             if (proofInput && proofInput.files.length > 0) {
-                const uploadDate = toLocalDateString(new Date());
-                newData.proofOfDeal = await uploadFile(proofInput.files[0], dealCollectionName, currentUser.name, uploadDate);
+                newData.proofOfDeal = await uploadFile(proofInput.files[0]);
             } else if (!leadData.proofOfDeal) {
                 throw new Error('Bukti deal wajib diunggah saat mengubah status menjadi "Deal".');
             }
@@ -434,9 +440,8 @@ async function handleEditFormSubmit(e) {
         const fileInputPromises = [];
         for (const [key, value] of formData.entries()) {
             if (value instanceof File && value.size > 0) {
-                const uploadDate = toLocalDateString(new Date());
                 fileInputPromises.push(
-                    uploadFile(value, collectionName, currentUser.name, uploadDate).then(downloadURL => {
+                    uploadFile(value).then(downloadURL => {
                     dataToUpdate[key] = downloadURL;
                     })
                 );
