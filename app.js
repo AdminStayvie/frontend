@@ -914,9 +914,7 @@ function generateSimpleRow(item, dataKey) {
     } else {
         actionCell = `<button class="btn btn--sm btn--secondary" onclick="openEditModal('${item._id}', '${dataKey}'); event.stopPropagation();">Edit</button>`;
     }
-    // [MODIFIKASI] Tambahkan tombol hapus
-    actionButtons += `<button class="btn--delete" onclick="deleteKpiData('${dataKey}', '${item._id}'); event.stopPropagation();" title="Hapus Data">&times;</button>`;
-  
+
     return `
         <tr onclick="openDetailModal('${item._id}', '${dataKey}')">
             <td>${item.datestamp || ''}</td>
@@ -946,8 +944,6 @@ function generateLeadRow(item, dataKey) {
     if (actionButton.trim() === '') {
         actionButton = '-';
     }
-    // [MODIFIKASI] Tambahkan tombol hapus
-    actionButtons += `<button class="btn--delete" onclick="deleteKpiData('${dataKey}', '${item._id}'); event.stopPropagation();" title="Hapus Data">&times;</button>`;
 
     return `
         <tr onclick="openDetailModal('${item._id}', '${dataKey}')">
@@ -970,9 +966,7 @@ function generateDealRow(item, dataKey) {
     } else {
         actionCell = `<button class="btn btn--sm btn--secondary" onclick="openEditModal('${item._id}', '${dataKey}'); event.stopPropagation();">Edit</button>`;
     }
-    // [MODIFIKASI] Tambahkan tombol hapus
-    actionButtons += `<button class="btn--delete" onclick="deleteKpiData('${dataKey}', '${item._id}'); event.stopPropagation();" title="Hapus Data">&times;</button>`;
-    
+
     return `
         <tr onclick="openDetailModal('${item._id}', '${dataKey}')">
             <td>${item.datestamp || ''}</td>
