@@ -67,3 +67,23 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+
+# File konfigurasi sensitif
+.env
+config/keys.js
+*.env.local
+
+# File log dan cache
+*.log
+.cache/
+
+# Folder IDE
+.vscode/
+
+# File macOS
+.DS_Store
+
